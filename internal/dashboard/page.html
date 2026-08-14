@@ -76,6 +76,15 @@
 
   .group-label { font-size: 11px; letter-spacing: .08em; color: var(--ink-3); font-weight: 600;
                  margin: 16px 0 8px; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+           overflow: hidden; margin-bottom: 6px; }
+  table { border-collapse: collapse; width: 100%; }
+  thead th { text-align: left; font-size: 11px; letter-spacing: .04em; text-transform: uppercase;
+             color: var(--ink-3); font-weight: 600; padding: 8px 14px; border-bottom: 1px solid var(--border); }
+  tbody td { padding: 6px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tbody tr:last-child td { border-bottom: none; }
+  td.tree { font-weight: 600; white-space: nowrap; font-size: 13.5px; }
+  td.branch { color: var(--ink-2); font-size: 12.5px; }
   .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
           padding: 14px 16px; margin-bottom: 10px; display: flex; gap: 12px; }
   .card .body { flex: 1; min-width: 0; }
@@ -159,6 +168,21 @@
     <span id="statMeta" style="margin-left:auto;color:var(--ink-3)"></span>
   </div>
 
+  <div id="flightSect" hidden>
+    <div class="sect"><span id="flightLabel">IN FLIGHT</span></div>
+    <div id="flightCards"></div>
+  </div>
+
+  <div id="cleanSect" hidden>
+    <div class="sect"><span id="cleanLabel">CLEAN</span></div>
+    <div class="panel"><table>
+      <thead><tr><th>Tree</th><th>Branch</th><th>Ports</th><th></th></tr></thead>
+      <tbody id="cleanRows"></tbody>
+    </table></div>
+  </div>
+
+  <div id="emptyMsg" class="err" hidden></div>
+
   <div class="sect"><span>SOURCE REPOSITORIES</span>
     <div class="tools">
       <button class="icon" id="refreshBtn" title="git fetch every source repo">⟳ Refresh</button>
@@ -166,9 +190,6 @@
     </div>
   </div>
   <div id="repoRows"></div>
-
-  <div class="sect"><span>TREES</span></div>
-  <div id="treeGroups" class="err"></div>
 </div>
 
 <div class="overlay" id="overlay"><div class="dialog" id="dialog"></div></div>
@@ -207,15 +228,6 @@ function repoStatusLines(t) {
       <span class="st">${parts.length ? esc(parts.join(', ')) : 'up to date'}</span></div>`;
   }).join('');
 }
-function portLine(t) {
-  if (!t.ports) return '';
-  const links = Object.entries(t.ports).sort((a, b) => a[1] - b[1]).map(([name, p]) => {
-    const on = t.listening && t.listening[name];
-    return `<a class="port mono" href="http://localhost:${p}" target="_blank">:${p}</a>` +
-           (on ? '<span class="live">● LIVE</span>' : ' ');
-  }).join(' ');
-  return `<div class="pline">${links}</div>`;
-}
 function cardFlags(t) {
   const f = [];
   if (!t.has_manifest) f.push('no manifest');
@@ -228,19 +240,29 @@ function cardTitle(t) {
     return `${esc(t.display_name)} <span class="mono" style="color:var(--ink-3);font-size:12.5px;font-weight:400">(${esc(t.name)})</span>`;
   return esc(t.name);
 }
-function card(t) {
+function rowActions(t) {
   const cmds = (meta && meta.commands || []).slice(0, 2)
     .map(c => `<button class="icon" onclick="runCmd('${c}','${t.name}')">${c}</button>`).join('');
   const adopt = t.has_manifest ? '' : `<button class="icon" onclick="doAdopt('${t.name}')">adopt</button>`;
   const rename = t.has_manifest ? `<button class="icon" onclick="askRename('${t.name}')" title="set display name">✎</button>` : '';
+  return `${adopt}${cmds}${rename}<button class="icon" onclick="askDelete('${t.name}')" title="remove tree">🗑</button>`;
+}
+function portsInline(t) {
+  if (!t.ports) return '<span class="off">—</span>';
+  return Object.entries(t.ports).sort((a, b) => a[1] - b[1]).map(([name, p]) => {
+    const on = t.listening && t.listening[name];
+    return `<a class="port mono" href="http://localhost:${p}" target="_blank">:${p}</a>` +
+           (on ? '<span class="live">● LIVE</span>' : ' ');
+  }).join(' ');
+}
+function card(t) {
   return `<div class="card">
     <div class="body">
       <h3>${cardTitle(t)}${cardFlags(t)}</h3>
       ${repoStatusLines(t)}
-      ${portLine(t)}
+      <div class="pline">${portsInline(t)}</div>
     </div>
-    <div class="acts">${adopt}${cmds}${rename}
-      <button class="icon" onclick="askDelete('${t.name}')" title="remove tree">🗑</button></div>
+    <div class="acts">${rowActions(t)}</div>
   </div>`;
 }
 
@@ -307,11 +329,23 @@ function render() {
 
   const trees = data.trees.filter(match);
   const fly = trees.filter(inFlight), clean = trees.filter(t => !inFlight(t));
-  $('treeGroups').className = '';
-  $('treeGroups').innerHTML =
-    (fly.length ? `<div class="group-label">IN FLIGHT (${fly.length})</div>` + fly.map(card).join('') : '') +
-    (clean.length ? `<div class="group-label">CLEAN (${clean.length})</div>` + clean.map(card).join('') : '') ||
-    '<div class="err">no trees yet — ＋ New Tree</div>';
+
+  $('flightSect').hidden = fly.length === 0;
+  $('flightLabel').textContent = `IN FLIGHT (${fly.length})`;
+  $('flightCards').innerHTML = fly.map(card).join('');
+
+  $('cleanSect').hidden = clean.length === 0;
+  $('cleanLabel').textContent = `CLEAN (${clean.length})`;
+  $('cleanRows').innerHTML = clean.map(t => `
+    <tr>
+      <td class="tree">${cardTitle(t)}${cardFlags(t)}</td>
+      <td class="branch mono">${esc([...new Set(t.repos.map(r => r.branch).filter(Boolean))].join(', ') || '?')}</td>
+      <td>${portsInline(t)}</td>
+      <td class="actions" style="text-align:right;white-space:nowrap">${rowActions(t)}</td>
+    </tr>`).join('');
+
+  $('emptyMsg').hidden = trees.length > 0;
+  $('emptyMsg').textContent = data.trees.length === 0 ? 'no trees yet — ＋ New Tree' : 'no trees match the filter';
 }
 
 /* ── modal plumbing ── */
