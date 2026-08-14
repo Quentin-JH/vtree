@@ -37,6 +37,9 @@ func makeRemote(t *testing.T) string {
 	git(t, filepath.Dir(dir), "init", "-q", "-b", "main", dir)
 	os.WriteFile(filepath.Join(dir, "api", ".env.example"), []byte(
 		"APP_URL=http://localhost:8000\nDB_CONNECTION=sqlite\n# DB_HOST=127.0.0.1\n# DB_DATABASE=app\n"), 0o644)
+	// Real repos gitignore their rendered .env; without this, every fresh
+	// tree would read dirty from the file vtree itself just rendered.
+	os.WriteFile(filepath.Join(dir, ".gitignore"), []byte(".env\n"), 0o644)
 	git(t, dir, "add", ".")
 	git(t, dir, "commit", "-q", "-m", "seed")
 	git(t, dir, "branch", "staging")
