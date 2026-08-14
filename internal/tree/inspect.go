@@ -21,6 +21,9 @@ type RepoState struct {
 	Branch   string   `json:"branch"`
 	Dirty    []string `json:"dirty,omitempty"`    // porcelain lines, ignore-filtered
 	Unpushed []string `json:"unpushed,omitempty"` // oneline commits on no remote
+	// Ahead counts commits beyond the repo's configured base ref — feature
+	// progress, for display. Unlike Dirty/Unpushed it makes no safety claim.
+	Ahead int `json:"ahead,omitempty"`
 	// Err records a repo whose state could not be verified. The down guard
 	// treats this as a refusal: an uninspectable repo must never read as
 	// clean and then be deleted.
@@ -83,6 +86,11 @@ func Inspect(ws *workspace.Workspace, name string) []RepoState {
 			continue
 		}
 		st.Unpushed = splitLines(unpushed)
+
+		// Display-only; a failure here must not mark the repo unverifiable.
+		if n, err := gitx.Run(wt, "rev-list", "--count", repo.BaseRef+"..HEAD"); err == nil {
+			fmt.Sscanf(n, "%d", &st.Ahead)
+		}
 		out = append(out, st)
 	}
 	return out

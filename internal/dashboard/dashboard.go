@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Quentin-JH/vtree/internal/gitx"
 	"github.com/Quentin-JH/vtree/internal/tree"
 	"github.com/Quentin-JH/vtree/internal/workspace"
 )
@@ -161,7 +162,7 @@ func Handler(root, version string) *http.ServeMux {
 		json.NewEncoder(w).Encode(tree.Inspect(ws, name))
 	})
 
-	// GET /api/meta — workspace commands and repo panel data.
+	// GET /api/meta — workspace identity, stat row, repo rows, commands.
 	mux.HandleFunc("/api/meta", func(w http.ResponseWriter, r *http.Request) {
 		ws, err := workspace.Open(root)
 		if err != nil {
@@ -172,14 +173,21 @@ func Handler(root, version string) *http.ServeMux {
 			Name      string `json:"name"`
 			Installed bool   `json:"installed"`
 			BaseRef   string `json:"base_ref"`
+			Branch    string `json:"branch,omitempty"`
+			Behind    int    `json:"behind"` // source clone vs its origin (as of last fetch)
 		}
 		var repos []repoMeta
 		for _, repo := range ws.Config.Repos {
-			st, err := os.Stat(ws.RepoPath(repo.Name))
-			repos = append(repos, repoMeta{
-				Name: repo.Name, BaseRef: repo.BaseRef,
-				Installed: err == nil && st.IsDir(),
-			})
+			rm := repoMeta{Name: repo.Name, BaseRef: repo.BaseRef}
+			path := ws.RepoPath(repo.Name)
+			if st, err := os.Stat(path); err == nil && st.IsDir() {
+				rm.Installed = true
+				rm.Branch, _ = gitx.Run(path, "rev-parse", "--abbrev-ref", "HEAD")
+				if n, err := gitx.Run(path, "rev-list", "--count", "HEAD..origin/"+rm.Branch); err == nil {
+					fmt.Sscanf(n, "%d", &rm.Behind)
+				}
+			}
+			repos = append(repos, rm)
 		}
 		var commands []string
 		for _, c := range ws.Config.Commands {
@@ -187,8 +195,40 @@ func Handler(root, version string) *http.ServeMux {
 				commands = append(commands, c.Name)
 			}
 		}
+		out := map[string]any{
+			"name": ws.Config.Name, "path": ws.Root,
+			"repos": repos, "commands": commands,
+			"base_port": 0, "branch_prefix": "",
+		}
+		if ws.Config.Ports != nil {
+			out["base_port"] = ws.Config.Ports.Base
+		}
+		if len(ws.Config.Repos) > 0 {
+			out["branch_prefix"] = ws.Config.Repos[0].BranchPrefix
+		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{"repos": repos, "commands": commands})
+		json.NewEncoder(w).Encode(out)
+	})
+
+	// POST /api/refresh — fetch origin in every source repo, so the behind
+	// counts and the next `up` see fresh remote refs. Synchronous; seconds.
+	mux.HandleFunc("/api/refresh", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "POST only", http.StatusMethodNotAllowed)
+			return
+		}
+		ws, err := workspace.Open(root)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		for _, repo := range ws.Config.Repos {
+			if _, err := gitx.Run(ws.RepoPath(repo.Name), "fetch", "-q", "origin"); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		}
+		w.WriteHeader(http.StatusNoContent)
 	})
 
 	mux.HandleFunc("/api/status", func(w http.ResponseWriter, r *http.Request) {

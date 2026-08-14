@@ -6,93 +6,120 @@
 <title>vtree</title>
 <style>
   :root {
-    --bg: #f6f7f9; --surface: #ffffff; --border: #e2e5ea;
-    --ink: #1c2128; --ink-2: #57606a; --ink-3: #8b949e;
-    --good: #1a7f37; --warn: #9a6700; --bad: #cf222e;
-    --good-bg: #dafbe1; --warn-bg: #fff8c5; --bad-bg: #ffebe9;
-    --link: #0969da; --run: #1a7f37; --btn: #f3f4f6; --btn-border: #d0d7de;
-    --overlay: rgba(20,24,30,.45); --console: #0d1117; --console-ink: #c9d1d9;
+    --side: #f0f1f4; --bg: #f7f8fa; --card: #ffffff; --row: #ffffff;
+    --border: #e2e5ea; --ink: #1c2128; --ink-2: #57606a; --ink-3: #8b949e;
+    --accent: #2f6fed; --accent-ink: #ffffff;
+    --good: #1a7f37; --warn: #b45309; --bad: #cf222e;
+    --chip: #eceef2; --console: #0d1117; --console-ink: #c9d1d9;
+    --overlay: rgba(20,24,30,.45); --hover: rgba(0,0,0,.04);
+    --warn-bg: #fff8c5; --good-bg: #dafbe1;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #0d1117; --surface: #161b22; --border: #30363d;
-      --ink: #e6edf3; --ink-2: #9da7b3; --ink-3: #6e7681;
-      --good: #3fb950; --warn: #d29922; --bad: #f85149;
-      --good-bg: #12261e; --warn-bg: #272115; --bad-bg: #2d1618;
-      --link: #58a6ff; --run: #3fb950; --btn: #21262d; --btn-border: #30363d;
-      --overlay: rgba(0,0,0,.6); --console: #010409; --console-ink: #c9d1d9;
+      --side: #111318; --bg: #16191f; --card: #1b1f27; --row: #1b1f27;
+      --border: #262b34; --ink: #e6edf3; --ink-2: #9da7b3; --ink-3: #6e7681;
+      --accent: #3b82f6; --accent-ink: #ffffff;
+      --good: #3fb950; --warn: #e3a008; --bad: #f85149;
+      --chip: #262b34; --console: #0b0d12; --console-ink: #c9d1d9;
+      --overlay: rgba(0,0,0,.6); --hover: rgba(255,255,255,.05);
+      --warn-bg: #2a2210; --good-bg: #12261e;
     }
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--ink);
-         font: 14px/1.5 ui-sans-serif, -apple-system, "Segoe UI", sans-serif; }
-  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 16px 24px 6px; }
-  header h1 { font-size: 18px; margin: 0; }
-  .summary { color: var(--ink-2); font-size: 13px; }
-  .meta { color: var(--ink-3); font-size: 12px; margin-left: auto; }
-  .toolbar { padding: 4px 24px 12px; display: flex; gap: 10px; align-items: center; }
-  input[type=search], input[type=text] {
-    background: var(--surface); border: 1px solid var(--btn-border); color: var(--ink);
-    border-radius: 6px; padding: 6px 10px; font: inherit;
-  }
-  input[type=search] { width: 220px; }
-  button {
-    background: var(--btn); border: 1px solid var(--btn-border); color: var(--ink);
-    border-radius: 6px; padding: 5px 12px; font: inherit; font-size: 13px; cursor: pointer;
-  }
-  button:hover { filter: brightness(1.06); }
-  button.primary { background: var(--good); border-color: var(--good); color: #fff; }
-  button.danger  { background: var(--bad);  border-color: var(--bad);  color: #fff; }
-  button:disabled { opacity: .45; cursor: default; }
-  button.icon { padding: 3px 8px; font-size: 12px; }
-  main { padding: 0 24px 32px; display: grid; gap: 14px; }
-  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-  .panel h2 { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-3);
-              margin: 0; padding: 8px 12px; border-bottom: 1px solid var(--border);
-              display: flex; align-items: center; gap: 8px; }
-  .panel h2 .spacer { margin-left: auto; }
-  .repos { display: flex; gap: 18px; padding: 9px 12px; flex-wrap: wrap; font-size: 13px; }
-  .repos .chip { color: var(--ink-2); font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
-  table { border-collapse: collapse; width: 100%; }
-  thead th { text-align: left; font-size: 11px; letter-spacing: .04em; text-transform: uppercase;
-             color: var(--ink-3); font-weight: 600; padding: 8px 12px; border-bottom: 1px solid var(--border); }
-  tbody td { padding: 6px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
-  tbody tr:last-child td { border-bottom: none; }
-  td.tree { font-weight: 600; white-space: nowrap; }
-  td.branch { color: var(--ink-2); font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; }
-  td.actions { text-align: right; white-space: nowrap; }
-  .badge { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px;
-           padding: 1px 9px; font-size: 12px; font-weight: 500; white-space: nowrap; }
-  .badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
-  .b-clean { color: var(--good); background: var(--good-bg); }
-  .b-dirty { color: var(--warn); background: var(--warn-bg); }
-  .b-risk  { color: var(--bad);  background: var(--bad-bg); }
-  .flag { color: var(--ink-3); font-size: 12px; margin-left: 6px; font-weight: 400; }
-  a.port { color: var(--link); text-decoration: none; font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; }
-  a.port:hover { text-decoration: underline; }
-  .live { color: var(--run); font-size: 11px; font-weight: 600; margin-left: 3px; }
-  .off { color: var(--ink-3); }
-  .err { color: var(--bad); padding: 16px 0; }
+  body { margin: 0; background: var(--bg); color: var(--ink); height: 100vh; display: flex;
+         font: 14px/1.5 ui-sans-serif, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 
-  /* modal */
+  /* ── sidebar ── */
+  aside { width: 250px; background: var(--side); border-right: 1px solid var(--border);
+          display: flex; flex-direction: column; flex-shrink: 0; }
+  aside .head { display: flex; align-items: center; justify-content: space-between;
+                padding: 20px 16px 10px; }
+  aside .head span { font-size: 11px; letter-spacing: .08em; color: var(--ink-3); font-weight: 600; }
+  .wsitem { margin: 2px 10px; padding: 9px 12px; border-radius: 8px; cursor: default; }
+  .wsitem.sel { background: var(--accent); color: var(--accent-ink); }
+  .wsitem .n { font-weight: 600; font-size: 13.5px; }
+  .wsitem .s { font-size: 12px; opacity: .8; }
+  aside .foot { margin-top: auto; padding: 12px 16px; border-top: 1px solid var(--border); }
+  aside .foot button { background: none; border: none; color: var(--ink-2); font: inherit;
+                       font-size: 13px; cursor: pointer; padding: 4px 0; }
+  aside .foot button:hover { color: var(--ink); }
+
+  /* ── main ── */
+  .main { flex: 1; overflow-y: auto; padding: 26px 32px 48px; }
+  .titlebar { display: flex; align-items: flex-start; gap: 10px; }
+  .titlebar h1 { margin: 0; font-size: 22px; }
+  .titlebar .right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  .path { color: var(--ink-3); font-size: 12.5px; margin: 2px 0 14px; }
+  .stats { display: flex; gap: 56px; padding: 6px 0 18px; border-bottom: 1px solid var(--border);
+           font-size: 13px; color: var(--ink-2); flex-wrap: wrap; }
+  .stats b { color: var(--ink); font-weight: 600; margin-left: 6px; }
+
+  .sect { display: flex; align-items: center; gap: 8px; margin: 22px 0 8px; }
+  .sect span { font-size: 11px; letter-spacing: .08em; color: var(--ink-3); font-weight: 600; }
+  .sect .tools { margin-left: auto; display: flex; gap: 6px; }
+
+  .repo-row { background: var(--row); border: 1px solid var(--border); border-radius: 8px;
+              display: flex; align-items: center; gap: 10px; padding: 9px 14px; margin-bottom: 6px; }
+  .repo-row .name { font-weight: 600; font-size: 13.5px; }
+  .chip { background: var(--chip); color: var(--ink-2); border-radius: 5px; padding: 1px 7px;
+          font-size: 11.5px; }
+  .repo-row .right { margin-left: auto; font-size: 12.5px; }
+  .behind { color: var(--warn); font-weight: 600; }
+  .uptodate { color: var(--good); }
+  .notinstalled { color: var(--bad); }
+
+  .group-label { font-size: 11px; letter-spacing: .08em; color: var(--ink-3); font-weight: 600;
+                 margin: 16px 0 8px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+          padding: 14px 16px; margin-bottom: 10px; display: flex; gap: 12px; }
+  .card .body { flex: 1; min-width: 0; }
+  .card h3 { margin: 0 0 6px; font-size: 15px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .flag { color: var(--ink-3); font-size: 11.5px; font-weight: 400; }
+  .rline { display: flex; align-items: baseline; gap: 8px; font-size: 13px; margin: 2px 0; }
+  .rline .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; position: relative; top: 0; }
+  .d-good { background: var(--good); } .d-warn { background: var(--warn); } .d-bad { background: var(--bad); }
+  .rline .rname { color: var(--ink-2); }
+  .rline .st { color: var(--ink-2); }
+  .pline { margin-top: 8px; font-size: 12.5px; }
+  a.port { color: var(--accent); text-decoration: none; }
+  a.port:hover { text-decoration: underline; }
+  .live { color: var(--good); font-size: 11px; font-weight: 700; margin: 0 8px 0 3px; }
+  .card .acts { display: flex; gap: 6px; align-items: flex-start; }
+
+  button { background: var(--card); border: 1px solid var(--border); color: var(--ink);
+           border-radius: 7px; padding: 5px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+  button:hover { background: var(--hover); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  button.danger { background: var(--bad); border-color: var(--bad); color: #fff; }
+  button:disabled { opacity: .45; cursor: default; }
+  button.icon { padding: 4px 9px; font-size: 12px; color: var(--ink-2); }
+  input[type=search], input[type=text] {
+    background: var(--card); border: 1px solid var(--border); color: var(--ink);
+    border-radius: 7px; padding: 6px 10px; font: inherit;
+  }
+  .err { color: var(--bad); padding: 14px 0; }
+
+  /* ── modal ── */
   .overlay { position: fixed; inset: 0; background: var(--overlay); display: none;
              align-items: flex-start; justify-content: center; padding-top: 9vh; z-index: 10; }
   .overlay.open { display: flex; }
-  .dialog { background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  .dialog { background: var(--card); border: 1px solid var(--border); border-radius: 12px;
             width: min(680px, 92vw); max-height: 82vh; display: flex; flex-direction: column;
-            box-shadow: 0 16px 48px rgba(0,0,0,.28); }
-  .dialog header { padding: 14px 18px 8px; }
+            box-shadow: 0 16px 48px rgba(0,0,0,.35); }
+  .dialog header { padding: 16px 20px 8px; }
   .dialog h3 { margin: 0; font-size: 15px; }
-  .dialog .body { padding: 8px 18px 14px; overflow-y: auto; display: grid; gap: 10px; }
+  .dialog .dbody { padding: 8px 20px 14px; overflow-y: auto; display: grid; gap: 10px; }
   .dialog .row { display: flex; gap: 8px; align-items: center; }
-  .dialog .foot { padding: 10px 18px 14px; display: flex; gap: 8px; justify-content: flex-end;
+  .dialog .foot { padding: 10px 20px 16px; display: flex; gap: 8px; justify-content: flex-end;
                   border-top: 1px solid var(--border); }
-  .warnbox { background: var(--warn-bg); border: 1px solid var(--warn); border-radius: 6px;
+  .warnbox { background: var(--warn-bg); border: 1px solid var(--warn); border-radius: 8px;
              padding: 10px 12px; font-size: 13px; }
   .warnbox pre { margin: 6px 0 0; font-size: 12px; white-space: pre-wrap; max-height: 180px; overflow: auto; }
-  .console { background: var(--console); color: var(--console-ink); border-radius: 6px;
+  .cleanbox { background: var(--good-bg); border-radius: 8px; padding: 8px 12px; font-size: 13px; color: var(--good); }
+  .console { background: var(--console); color: var(--console-ink); border-radius: 8px;
              font-family: ui-monospace, Menlo, monospace; font-size: 12px; line-height: 1.45;
-             padding: 10px 12px; min-height: 120px; max-height: 46vh; overflow-y: auto; white-space: pre-wrap; }
+             padding: 10px 12px; min-height: 110px; max-height: 44vh; overflow-y: auto; white-space: pre-wrap; }
   .status-line { font-size: 13px; display: flex; align-items: center; gap: 8px; }
   .spin { width: 12px; height: 12px; border: 2px solid var(--ink-3); border-top-color: transparent;
           border-radius: 50%; animation: spin .8s linear infinite; display: inline-block; }
@@ -102,31 +129,51 @@
 </style>
 </head>
 <body>
-<header>
-  <h1 id="ws">vtree</h1>
-  <span class="summary" id="summary"></span>
-  <span class="meta" id="meta"></span>
-</header>
-<div class="toolbar">
-  <input type="search" id="filter" placeholder="Filter trees…" autocomplete="off">
-  <button class="primary" id="newTreeBtn">＋ New tree</button>
-</div>
-<main>
-  <div class="panel" id="repoPanel" hidden>
-    <h2>Source repositories <span class="spacer"></span><button class="icon" id="installBtn" hidden>Install</button></h2>
-    <div class="repos" id="repos"></div>
+<aside>
+  <div class="head"><span>WORKSPACES</span></div>
+  <div class="wsitem sel"><div class="n" id="sideName">…</div><div class="s" id="sideSub"></div></div>
+  <div class="foot"><button id="settingsBtn">⚙ Settings</button></div>
+</aside>
+
+<div class="main">
+  <div class="titlebar">
+    <div>
+      <h1 id="wsTitle">…</h1>
+      <div class="path mono" id="wsPath"></div>
+    </div>
+    <div class="right">
+      <input type="search" id="filter" placeholder="Filter…" autocomplete="off" style="width:170px">
+      <button class="primary" id="newTreeBtn">＋ New Tree</button>
+    </div>
   </div>
-  <div id="content" class="err"></div>
-</main>
+
+  <div class="stats">
+    <span>Repos:<b id="statRepos">–</b></span>
+    <span>Branch prefix:<b class="mono" id="statPrefix">–</b></span>
+    <span>Base port:<b class="mono" id="statPort">–</b></span>
+    <span id="statMeta" style="margin-left:auto;color:var(--ink-3)"></span>
+  </div>
+
+  <div class="sect"><span>SOURCE REPOSITORIES</span>
+    <div class="tools">
+      <button class="icon" id="refreshBtn" title="git fetch every source repo">⟳ Refresh</button>
+      <button class="icon" id="installBtn" hidden>Install</button>
+    </div>
+  </div>
+  <div id="repoRows"></div>
+
+  <div class="sect"><span>TREES</span></div>
+  <div id="treeGroups" class="err"></div>
+</div>
 
 <div class="overlay" id="overlay"><div class="dialog" id="dialog"></div></div>
 
 <script>
 let data = null, meta = null;
 const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
 
-/* ── data ─────────────────────────────────────────────────────────────── */
-
+/* ── data ── */
 async function refresh() {
   try {
     const [s, m] = await Promise.all([fetch('/api/status'), fetch('/api/meta')]);
@@ -135,89 +182,106 @@ async function refresh() {
     meta = m.ok ? await m.json() : meta;
     render();
   } catch (e) {
-    $('content').className = 'err';
-    $('content').textContent = 'Cannot reach vtree: ' + e.message;
+    $('treeGroups').className = 'err';
+    $('treeGroups').textContent = 'Cannot reach vtree: ' + e.message;
   }
 }
 
-/* ── rendering ────────────────────────────────────────────────────────── */
-
-function badge(t) {
-  if (t.unpushed > 0 || t.repos.some(r => r.error))
-    return `<span class="badge b-risk">${t.repos.some(r => r.error) ? 'unverifiable' : t.unpushed + ' unpushed'}</span>`;
-  if (t.dirty > 0) return `<span class="badge b-dirty">${t.dirty} dirty</span>`;
-  return `<span class="badge b-clean">clean</span>`;
+/* ── rendering ── */
+function repoStatusLines(t) {
+  return t.repos.map(r => {
+    const parts = [];
+    if (r.error) parts.push('cannot verify');
+    if (r.dirty && r.dirty.length) parts.push(r.dirty.length + ' dirty');
+    if (r.unpushed && r.unpushed.length) parts.push(r.unpushed.length + ' unpushed');
+    if (r.ahead) parts.push(r.ahead + ' ahead');
+    const dot = r.error || (r.unpushed && r.unpushed.length) ? 'd-bad'
+              : (r.dirty && r.dirty.length) ? 'd-warn' : 'd-good';
+    return `<div class="rline"><span class="dot ${dot}"></span>
+      <span class="rname mono">${esc(r.repo)}:</span>
+      <span class="st">${parts.length ? esc(parts.join(', ')) : 'up to date'}</span></div>`;
+  }).join('');
 }
-function flags(t) {
+function portLine(t) {
+  if (!t.ports) return '';
+  const links = Object.entries(t.ports).sort((a, b) => a[1] - b[1]).map(([name, p]) => {
+    const on = t.listening && t.listening[name];
+    return `<a class="port mono" href="http://localhost:${p}" target="_blank">:${p}</a>` +
+           (on ? '<span class="live">● LIVE</span>' : ' ');
+  }).join(' ');
+  return `<div class="pline">${links}</div>`;
+}
+function cardFlags(t) {
   const f = [];
   if (!t.has_manifest) f.push('no manifest');
   if (t.legacy) f.push('legacy: ' + t.legacy);
   if (t.ports_diverged) f.push('ports diverged');
-  return f.map(x => `<span class="flag">${x}</span>`).join('');
+  return f.map(x => `<span class="flag">${esc(x)}</span>`).join('');
 }
-function portCell(t) {
-  if (!t.ports) return '<span class="off">—</span>';
-  return Object.entries(t.ports).sort((a, b) => a[1] - b[1]).map(([name, p]) => {
-    const on = t.listening && t.listening[name];
-    return `<a class="port" href="http://localhost:${p}" target="_blank">:${p}</a>` +
-           (on ? '<span class="live">●&nbsp;live</span>' : '');
-  }).join(' &nbsp;');
-}
-function branchCell(t) {
-  return [...new Set(t.repos.map(r => r.branch).filter(Boolean))].join(', ') || '?';
-}
-function actionCell(t) {
+function card(t) {
   const cmds = (meta && meta.commands || []).slice(0, 2)
-    .map(c => `<button class="icon" onclick="runCmd('${c}','${t.name}')">${c}</button>`).join(' ');
-  const adopt = t.has_manifest ? '' : `<button class="icon" onclick="doAdopt('${t.name}')">adopt</button> `;
-  return `${adopt}${cmds} <button class="icon" onclick="askDelete('${t.name}')" title="remove tree">🗑</button>`;
+    .map(c => `<button class="icon" onclick="runCmd('${c}','${t.name}')">${c}</button>`).join('');
+  const adopt = t.has_manifest ? '' : `<button class="icon" onclick="doAdopt('${t.name}')">adopt</button>`;
+  return `<div class="card">
+    <div class="body">
+      <h3>${esc(t.name)}${cardFlags(t)}</h3>
+      ${repoStatusLines(t)}
+      ${portLine(t)}
+    </div>
+    <div class="acts">${adopt}${cmds}
+      <button class="icon" onclick="askDelete('${t.name}')" title="remove tree">🗑</button></div>
+  </div>`;
+}
+function inFlight(t) {
+  return t.dirty > 0 || t.unpushed > 0 ||
+         t.repos.some(r => r.ahead > 0 || r.error) ||
+         (t.listening && Object.values(t.listening).some(Boolean));
 }
 
 function render() {
-  if (!data) return;
+  if (!data || !meta) return;
   const q = $('filter').value.toLowerCase();
-  const trees = data.trees.filter(t => !q || t.name.toLowerCase().includes(q) || branchCell(t).toLowerCase().includes(q));
-  const dirty = data.trees.filter(t => t.dirty > 0).length;
-  const unpushed = data.trees.filter(t => t.unpushed > 0).length;
-  const live = data.trees.filter(t => t.listening && Object.values(t.listening).some(Boolean)).length;
+  const match = t => !q || t.name.toLowerCase().includes(q) ||
+    t.repos.some(r => (r.branch || '').toLowerCase().includes(q));
 
-  $('ws').textContent = data.workspace;
-  $('summary').textContent = `${data.trees.length} trees · ${dirty} dirty · ${unpushed} unpushed · ${live} running`;
-  $('meta').textContent = `vtree ${data.version} · refreshed ${new Date(data.generated_at).toLocaleTimeString()}`;
+  $('sideName').textContent = meta.name;
+  $('sideSub').textContent = data.trees.length + ' trees';
+  $('wsTitle').textContent = meta.name;
+  $('wsPath').textContent = meta.path;
+  $('statRepos').textContent = meta.repos.length;
+  $('statPrefix').textContent = meta.branch_prefix || '—';
+  $('statPort').textContent = meta.base_port || '—';
+  $('statMeta').textContent = `vtree ${data.version} · ${new Date(data.generated_at).toLocaleTimeString()}`;
 
-  if (meta && meta.repos) {
-    $('repoPanel').hidden = false;
-    $('repos').innerHTML = meta.repos.map(r =>
-      `<span class="chip">${r.name} · ${r.base_ref}${r.installed ? '' : ' · <span style="color:var(--bad)">not installed</span>'}</span>`).join('');
-    $('installBtn').hidden = meta.repos.every(r => r.installed);
-  }
+  $('repoRows').innerHTML = meta.repos.map(r => {
+    let right;
+    if (!r.installed) right = '<span class="notinstalled">not installed</span>';
+    else if (r.behind > 0) right = `<span class="behind">↓ ${r.behind}</span>`;
+    else right = '<span class="uptodate">up to date</span>';
+    return `<div class="repo-row"><span class="name">${esc(r.name)}</span>
+      <span class="chip mono">${esc(r.branch || '?')}</span>
+      <span class="chip mono" title="trees are cut from this ref">${esc(r.base_ref)}</span>
+      <span class="right">${right}</span></div>`;
+  }).join('');
+  $('installBtn').hidden = meta.repos.every(r => r.installed);
 
-  $('content').className = 'panel';
-  $('content').innerHTML = `
-    <table>
-      <thead><tr><th>State</th><th>Tree</th><th>Branch</th><th>Ports</th><th></th></tr></thead>
-      <tbody>${trees.map(t => `
-        <tr>
-          <td>${badge(t)}</td>
-          <td class="tree">${t.name}${flags(t)}</td>
-          <td class="branch">${branchCell(t)}</td>
-          <td>${portCell(t)}</td>
-          <td class="actions">${actionCell(t)}</td>
-        </tr>`).join('')}
-      </tbody>
-    </table>`;
+  const trees = data.trees.filter(match);
+  const fly = trees.filter(inFlight), clean = trees.filter(t => !inFlight(t));
+  $('treeGroups').className = '';
+  $('treeGroups').innerHTML =
+    (fly.length ? `<div class="group-label">IN FLIGHT (${fly.length})</div>` + fly.map(card).join('') : '') +
+    (clean.length ? `<div class="group-label">CLEAN (${clean.length})</div>` + clean.map(card).join('') : '') ||
+    '<div class="err">no trees yet — ＋ New Tree</div>';
 }
 
-/* ── modal plumbing ───────────────────────────────────────────────────── */
-
+/* ── modal plumbing ── */
 let modalBusy = false;
 function openModal(html) { $('dialog').innerHTML = html; $('overlay').classList.add('open'); }
 function closeModal() { if (modalBusy) return; $('overlay').classList.remove('open'); refresh(); }
 $('overlay').addEventListener('click', e => { if (e.target === $('overlay')) closeModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
-/* ── op execution: POST an action, stream its output into a console ──── */
-
+/* ── ops ── */
 async function startAction(action, body, consoleEl, statusEl, opts = {}) {
   modalBusy = true;
   let id;
@@ -226,7 +290,7 @@ async function startAction(action, body, consoleEl, statusEl, opts = {}) {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
     });
     const j = await r.json().catch(() => ({}));
-    if (r.status === 409) { id = j.running; statusEl.innerHTML = `<span class="spin"></span> attached to running: vtree ${j.args.join(' ')}`; }
+    if (r.status === 409) { id = j.running; statusEl.innerHTML = `<span class="spin"></span> attached to running: vtree ${esc(j.args.join(' '))}`; }
     else if (!r.ok) throw new Error(j.error || r.statusText);
     else id = j.id;
   } catch (e) {
@@ -251,20 +315,18 @@ async function startAction(action, body, consoleEl, statusEl, opts = {}) {
     if (opts.onDone) opts.onDone(failed);
     refresh();
   });
-  es.onerror = () => { /* EventSource retries on its own */ };
+  es.onerror = () => {};
 }
-
 function consoleBlock() {
   return `<div class="status-line" id="opStatus"></div><div class="console" id="opConsole"></div>`;
 }
 
-/* ── dialogs ──────────────────────────────────────────────────────────── */
-
+/* ── dialogs ── */
 $('newTreeBtn').onclick = () => {
   openModal(`
     <header><h3>New tree</h3></header>
-    <div class="body">
-      <div class="row"><input type="text" id="ntName" placeholder="tree name (e.g. fix-303)" style="flex:1" autofocus></div>
+    <div class="dbody">
+      <div class="row"><input type="text" id="ntName" placeholder="tree name (e.g. fix-303)" style="flex:1"></div>
       <details class="adv"><summary>Advanced</summary>
         <div class="row" style="margin-top:8px">
           <input type="text" id="ntBase" placeholder="base ref override (default: workspace base_ref)" style="flex:1">
@@ -289,8 +351,8 @@ $('newTreeBtn').onclick = () => {
 
 function runCmd(command, name) {
   openModal(`
-    <header><h3>vtree ${command} ${name}</h3></header>
-    <div class="body">${consoleBlock()}</div>
+    <header><h3 class="mono">vtree ${esc(command)} ${esc(name)}</h3></header>
+    <div class="dbody">${consoleBlock()}</div>
     <div class="foot">
       <button class="danger" id="opCancel" disabled>Stop</button>
       <button onclick="closeModal()">Close</button>
@@ -307,8 +369,8 @@ function runCmd(command, name) {
 
 function doAdopt(name) {
   openModal(`
-    <header><h3>Adopt ${name}</h3></header>
-    <div class="body">${consoleBlock()}</div>
+    <header><h3>Adopt ${esc(name)}</h3></header>
+    <div class="dbody">${consoleBlock()}</div>
     <div class="foot"><button onclick="closeModal()">Close</button></div>`);
   startAction('adopt', { name }, $('opConsole'), $('opStatus'));
 }
@@ -316,16 +378,36 @@ function doAdopt(name) {
 $('installBtn').onclick = () => {
   openModal(`
     <header><h3>Install repositories</h3></header>
-    <div class="body">${consoleBlock()}</div>
+    <div class="dbody">${consoleBlock()}</div>
     <div class="foot"><button onclick="closeModal()">Close</button></div>`);
   startAction('install', {}, $('opConsole'), $('opStatus'));
 };
 
+$('refreshBtn').onclick = async () => {
+  $('refreshBtn').disabled = true; $('refreshBtn').textContent = '⟳ Fetching…';
+  try { await fetch('/api/refresh', { method: 'POST' }); } catch (e) {}
+  $('refreshBtn').disabled = false; $('refreshBtn').textContent = '⟳ Refresh';
+  refresh();
+};
+
+$('settingsBtn').onclick = () => {
+  openModal(`
+    <header><h3>Settings</h3></header>
+    <div class="dbody" style="font-size:13px">
+      <div>vtree <b>${esc(data ? data.version : '')}</b></div>
+      <div class="mono" style="color:var(--ink-2)">${esc(meta ? meta.path : '')}</div>
+      <div><a class="port" href="https://github.com/Quentin-JH/vtree/releases" target="_blank">Releases & downloads</a></div>
+      <div style="color:var(--ink-3)">Theme follows your system (light/dark). The server runs as a
+      login service — <span class="mono">vtree ui --uninstall</span> removes it.</div>
+    </div>
+    <div class="foot"><button onclick="closeModal()">Close</button></div>`);
+};
+
 async function askDelete(name) {
   openModal(`
-    <header><h3>Remove ${name}</h3></header>
-    <div class="body">
-      <div>This removes the worktrees, the branch, both MySQL schemas, and frees the ports.</div>
+    <header><h3>Remove ${esc(name)}</h3></header>
+    <div class="dbody">
+      <div style="font-size:13px">This removes the worktrees, the branch, both MySQL schemas, and frees the ports.</div>
       <div id="delRisk"><span class="spin"></span> checking for work at risk…</div>
       <div id="delRun" hidden>${consoleBlock()}</div>
     </div>
@@ -339,7 +421,7 @@ async function askDelete(name) {
     const states = await (await fetch('/api/inspect/' + encodeURIComponent(name))).json();
     const risky = states.filter(s => (s.dirty && s.dirty.length) || (s.unpushed && s.unpushed.length) || s.error);
     if (risky.length === 0) {
-      $('delRisk').innerHTML = '<span class="badge b-clean">clean</span> — nothing unpushed, nothing uncommitted.';
+      $('delRisk').innerHTML = '<div class="cleanbox">Clean — nothing unpushed, nothing uncommitted.</div>';
       $('delGo').disabled = false;
     } else {
       force = true;
@@ -353,7 +435,7 @@ async function askDelete(name) {
       $('delRisk').innerHTML = `
         <div class="warnbox">
           <strong>This work exists nowhere else and will be destroyed:</strong>
-          <pre>${detail.replace(/</g, '&lt;')}</pre>
+          <pre>${esc(detail)}</pre>
           <label class="check" style="margin-top:8px">
             <input type="checkbox" id="delAck">
             I understand these uncommitted and unpushed changes will be permanently lost
@@ -362,7 +444,7 @@ async function askDelete(name) {
       $('delAck').onchange = () => { $('delGo').disabled = !$('delAck').checked; };
     }
   } catch (e) {
-    $('delRisk').innerHTML = '<span class="err">Could not inspect: ' + e.message + '</span>';
+    $('delRisk').innerHTML = '<span class="err">Could not inspect: ' + esc(e.message) + '</span>';
   }
 
   $('delGo').onclick = () => {
@@ -372,8 +454,7 @@ async function askDelete(name) {
   };
 }
 
-/* ── boot ─────────────────────────────────────────────────────────────── */
-
+/* ── boot ── */
 $('filter').addEventListener('input', render);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
 refresh();
