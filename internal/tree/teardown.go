@@ -34,15 +34,7 @@ func Teardown(ws *workspace.Workspace, name string) (warnings []string) {
 		warn("unreadable manifest: %v", err)
 	}
 
-	// Kill processes on this tree's ports — but never a port another tree
-	// claims, so a lying manifest cannot take down a neighbor's dev server.
-	for _, p := range treePortsOf(ws, treeDir, m) {
-		if claimedElsewhere(ws, name, p) {
-			warn("port %d is also claimed by another tree — not killing it", p)
-			continue
-		}
-		killPort(p)
-	}
+	warnings = append(warnings, StopPorts(ws, name)...)
 
 	// Schemas are local dev data only — setup rebuilds them from scratch.
 	if ws.Config.Database != nil && (m == nil || m.Legacy == "") {
@@ -87,6 +79,26 @@ func Teardown(ws *workspace.Workspace, name string) (warnings []string) {
 		if _, err := gitx.Run(ws.RepoPath(repo.Name), "worktree", "prune"); err != nil {
 			warn("worktree prune %s: %v", repo.Name, err)
 		}
+	}
+	return warnings
+}
+
+// StopPorts kills processes listening on a tree's ports — but never a port
+// another tree claims, so a lying manifest cannot take down a neighbor's dev
+// server. Used by teardown, and by the app to stop dev stacks it no longer
+// tracks (started from a terminal, or surviving a dashboard restart).
+func StopPorts(ws *workspace.Workspace, name string) (warnings []string) {
+	treeDir := filepath.Join(ws.TreesPath(), name)
+	m, err := manifest.Read(treeDir)
+	if err != nil {
+		warnings = append(warnings, fmt.Sprintf("unreadable manifest: %v", err))
+	}
+	for _, p := range treePortsOf(ws, treeDir, m) {
+		if claimedElsewhere(ws, name, p) {
+			warnings = append(warnings, fmt.Sprintf("port %d is also claimed by another tree — not killing it", p))
+			continue
+		}
+		killPort(p)
 	}
 	return warnings
 }

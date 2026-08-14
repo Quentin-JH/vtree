@@ -255,9 +255,15 @@ function rowActions(t) {
   let dev = '';
   if ((meta.commands || []).includes('dev')) {
     const op = runningOp('dev', t.name);
+    const live = t.listening && Object.values(t.listening).some(Boolean);
     if (op) {
       dev = `<button class="icon" onclick="stopDev('${op.id}')" title="stop the dev stack">■ stop</button>` +
             `<button class="icon" onclick="attachLogs('${op.id}','dev ${t.name}')" title="dev output">logs</button>`;
+    } else if (live) {
+      // Something serves on this tree's ports but the app doesn't own it —
+      // started from a terminal, or surviving a dashboard restart. Stop
+      // works by killing the port listeners.
+      dev = `<button class="icon" onclick="stopPorts('${t.name}')" title="stop the processes on this tree's ports (started outside the app)">■ stop</button>`;
     } else if (starting.has(t.name)) {
       dev = `<button class="icon" disabled>starting…</button>`;
     } else {
@@ -299,6 +305,14 @@ async function startDev(name) {
 
 async function stopDev(opId) {
   await fetch(`/api/ops/${opId}/cancel`, { method: 'POST' });
+  setTimeout(refresh, 800);
+}
+
+async function stopPorts(name) {
+  const r = await fetch('/api/stopports', { method: 'POST',
+    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+  const j = await r.json().catch(() => ({}));
+  (j.warnings || []).forEach(w => console.warn('vtree:', w));
   setTimeout(refresh, 800);
 }
 

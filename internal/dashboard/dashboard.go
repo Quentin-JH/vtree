@@ -252,6 +252,31 @@ func Handler(root, version string) *http.ServeMux {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
+	// POST /api/stopports — kill listeners on a tree's ports. The stop path
+	// for dev stacks the registry no longer tracks: started from a terminal,
+	// or surviving a dashboard restart (ops run in their own process groups
+	// precisely so an upgrade doesn't kill your dev servers).
+	mux.HandleFunc("/api/stopports", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "POST only", http.StatusMethodNotAllowed)
+			return
+		}
+		var body map[string]string
+		json.NewDecoder(r.Body).Decode(&body)
+		ws, err := workspace.Open(root)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if _, err := os.Stat(filepath.Join(ws.TreesPath(), body["name"])); err != nil {
+			http.Error(w, "no such tree", http.StatusNotFound)
+			return
+		}
+		warnings := tree.StopPorts(ws, body["name"])
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"warnings": warnings})
+	})
+
 	// POST /api/refresh — fetch origin in every source repo, so the behind
 	// counts and the next `up` see fresh remote refs. Synchronous; seconds.
 	mux.HandleFunc("/api/refresh", func(w http.ResponseWriter, r *http.Request) {
