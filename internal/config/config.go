@@ -51,11 +51,36 @@ type Repo struct {
 }
 
 type EnvFile struct {
-	Source   string            `yaml:"source"`
-	Dest     string            `yaml:"dest"`
-	Optional bool              `yaml:"optional"`
-	Delete   []string          `yaml:"delete"`
-	Set      map[string]string `yaml:"set"`
+	Source   string   `yaml:"source"`
+	Dest     string   `yaml:"dest"`
+	Optional bool     `yaml:"optional"`
+	Delete   []string `yaml:"delete"`
+	Set      EnvSet   `yaml:"set"`
+}
+
+// EnvSet is an insertion-ordered key→value map. Order matters: rendered .env
+// files must come out byte-deterministic (the migration validates bash-vtree
+// output against Go-vtree output with a diff), and Go's map iteration is
+// deliberately randomized.
+type EnvSet struct {
+	Keys   []string
+	Values map[string]string
+}
+
+func (s *EnvSet) UnmarshalYAML(node *yaml.Node) error {
+	if node.Kind != yaml.MappingNode {
+		return fmt.Errorf("line %d: set must be a mapping of KEY: value", node.Line)
+	}
+	s.Values = map[string]string{}
+	for i := 0; i < len(node.Content); i += 2 {
+		k, v := node.Content[i], node.Content[i+1]
+		if _, dup := s.Values[k.Value]; dup {
+			return fmt.Errorf("line %d: duplicate set key %q", k.Line, k.Value)
+		}
+		s.Keys = append(s.Keys, k.Value)
+		s.Values[k.Value] = v.Value
+	}
+	return nil
 }
 
 type Ports struct {
@@ -192,7 +217,7 @@ func (c *Config) validate(path string) error {
 			if ef.Source == "" || ef.Dest == "" {
 				return at(`env_files[%d]: "source" and "dest" are both required`, j)
 			}
-			for k := range ef.Set {
+			for _, k := range ef.Set.Keys {
 				if strings.TrimSpace(k) == "" {
 					return at("env_files[%d]: set contains an empty key", j)
 				}
