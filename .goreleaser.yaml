@@ -1,0 +1,17 @@
+version: 2
+project_name: vtree
+builds:
+  - env: [CGO_ENABLED=0]
+    goos: [darwin, linux]
+    goarch: [arm64, amd64]
+    ldflags:
+      - -s -w -X github.com/Quentin-JH/vtree/cmd.Version={{.Version}}
+archives:
+  - formats: [tar.gz]
+    name_template: "vtree_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+checksum:
+  name_template: checksums.txt
+changelog:
+  use: github
+release:
+  draft: false

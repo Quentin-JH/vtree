@@ -44,10 +44,36 @@ workspace/
 | `vtree adopt <tree>` | Bring a pre-vtree tree under management |
 | `vtree doctor` | Check prerequisites and workspace health |
 
-## Status
+## Install
 
-Early — `doctor` and `version` work; `up`/`down`/`ls` are being built. See the plan in the
-project notes. The first consumer is the velera-crm workspace.
+Grab the archive for your machine from the [latest release](https://github.com/Quentin-JH/vtree/releases),
+then put the binary on your PATH:
+
+```
+tar -xzf vtree_*.tar.gz && mv vtree ~/.local/bin/
+```
+
+(Or, with Go installed: `go install github.com/Quentin-JH/vtree@latest`.)
+
+## Joining an existing workspace
+
+```
+git clone <workspace-repo> && cd <workspace>
+vtree init      # prompts for YOUR machine's MySQL settings → .vtree/local.yaml
+vtree install   # clones the configured repos
+vtree doctor    # verifies everything is reachable
+vtree up my-feature
+```
+
+The workspace's shared definition (`.vtree/vtree.yaml`, scripts, templates) comes with the clone;
+`local.yaml` is the only per-machine piece, and vtree refuses database operations until it exists —
+there are no baked-in connection defaults to silently hit the wrong server.
+
+## Starting a new workspace
+
+Run `vtree init` in an empty directory — it walks you through repos, ports, database, and PR
+settings, writes `.vtree/vtree.yaml` and `.gitignore`, and validates its own output against the
+strict config loader.
 
 ## Development
 

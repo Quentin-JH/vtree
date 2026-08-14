@@ -17,6 +17,7 @@ import (
 	"github.com/Quentin-JH/vtree/internal/manifest"
 	"github.com/Quentin-JH/vtree/internal/naming"
 	"github.com/Quentin-JH/vtree/internal/ports"
+	"github.com/Quentin-JH/vtree/internal/ui"
 	"github.com/Quentin-JH/vtree/internal/workspace"
 )
 
@@ -188,13 +189,14 @@ func buildTree(ws *workspace.Workspace, name, treeDir string, m *manifest.Manife
 	}
 
 	if cfg.Setup != "" {
-		fmt.Printf("setup %s\n", cfg.Setup)
 		cmd := exec.Command("bash", filepath.Join(ws.Root, cfg.Setup))
 		cmd.Dir = treeDir
 		cmd.Env = Environ(vars)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
+		// Spinner while it runs; output buffered and replayed only on failure
+		// (composer + npm produce screens of noise nobody needs on success).
+		if err := ui.WithProgress("setup "+cfg.Setup, func() error {
+			return ui.RunQuiet(cmd)
+		}); err != nil {
 			return fmt.Errorf("setup script failed: %w", err)
 		}
 	}
