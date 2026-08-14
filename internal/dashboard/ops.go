@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 )
@@ -70,26 +71,46 @@ func (o *op) unsubscribe(ch chan string) {
 	}
 }
 
-// registry serializes mutating ops: one at a time per served workspace, the
-// way ramp's server holds a per-project mutex. Reads (status) stay free.
+// registry runs ops in two classes, the way ramp's server does: mutating ops
+// (up, down, install, adopt) serialize — one at a time per workspace — while
+// `run` commands are concurrent, deduplicated per command+tree so clicking
+// dev twice attaches to the running server instead of starting a second one.
 type registry struct {
-	mu      sync.Mutex
-	nextID  int
-	ops     map[string]*op
-	running *op
+	mu       sync.Mutex
+	nextID   int
+	ops      map[string]*op
+	mutating *op
+	runs     map[string]*op // "command|tree" → active run op
 }
 
 func newRegistry() *registry {
-	return &registry{ops: map[string]*op{}}
+	return &registry{ops: map[string]*op{}, runs: map[string]*op{}}
 }
 
-// start launches `vtree <args>` in root. A second mutating op while one runs
-// is refused with the running op's id, so the UI can attach to it instead.
+// classify returns whether args serialize with other mutating ops, and the
+// dedup key for run-class ops ("" for mutating).
+func classify(args []string) (mutating bool, key string) {
+	if len(args) > 0 && args[0] == "run" {
+		k := strings.Join(args[1:], "|")
+		return false, k
+	}
+	return true, ""
+}
+
+// start launches `vtree <args>` in root. A conflicting op — another mutating
+// op, or the same command already running on the same tree — is refused with
+// the running op, so the UI attaches to it instead.
 func (r *registry) start(root string, args []string) (*op, *op, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if r.running != nil {
-		return nil, r.running, fmt.Errorf("an operation is already running")
+	mutating, key := classify(args)
+	if mutating && r.mutating != nil {
+		return nil, r.mutating, fmt.Errorf("an operation is already running")
+	}
+	if !mutating {
+		if existing := r.runs[key]; existing != nil {
+			return nil, existing, fmt.Errorf("already running")
+		}
 	}
 	self, err := os.Executable()
 	if err != nil {
@@ -112,7 +133,11 @@ func (r *registry) start(root string, args []string) (*op, *op, error) {
 	r.nextID++
 	o := &op{ID: strconv.Itoa(r.nextID), Args: args, subs: map[chan string]bool{}, cmd: cmd}
 	r.ops[o.ID] = o
-	r.running = o
+	if mutating {
+		r.mutating = o
+	} else {
+		r.runs[key] = o
+	}
 
 	go func() {
 		sc := bufio.NewScanner(stdout)
@@ -123,12 +148,31 @@ func (r *registry) start(root string, args []string) (*op, *op, error) {
 		err := cmd.Wait()
 		o.finish(err != nil)
 		r.mu.Lock()
-		if r.running == o {
-			r.running = nil
+		if r.mutating == o {
+			r.mutating = nil
+		}
+		if r.runs[key] == o {
+			delete(r.runs, key)
 		}
 		r.mu.Unlock()
 	}()
 	return o, nil, nil
+}
+
+// active returns every op still running — the UI renders these as card state.
+func (r *registry) active() []*op {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var out []*op
+	for _, o := range r.ops {
+		o.mu.Lock()
+		done := o.done
+		o.mu.Unlock()
+		if !done {
+			out = append(out, o)
+		}
+	}
+	return out
 }
 
 func (r *registry) get(id string) *op {

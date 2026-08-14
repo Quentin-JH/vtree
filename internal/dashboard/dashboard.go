@@ -124,6 +124,20 @@ func Handler(root, version string) *http.ServeMux {
 		json.NewEncoder(w).Encode(map[string]string{"id": o.ID})
 	})
 
+	// GET /api/ops — every op still running, for card state (■ stop, logs).
+	mux.HandleFunc("/api/ops", func(w http.ResponseWriter, r *http.Request) {
+		type row struct {
+			ID   string   `json:"id"`
+			Args []string `json:"args"`
+		}
+		var out []row
+		for _, o := range reg.active() {
+			out = append(out, row{ID: o.ID, Args: o.Args})
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(out)
+	})
+
 	// GET /api/ops/{id}/stream — SSE replay + follow. POST /api/ops/{id}/cancel.
 	mux.HandleFunc("/api/ops/", func(w http.ResponseWriter, r *http.Request) {
 		rest := strings.TrimPrefix(r.URL.Path, "/api/ops/")

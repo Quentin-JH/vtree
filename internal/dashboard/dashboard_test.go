@@ -86,3 +86,17 @@ func TestPayloadMarshals(t *testing.T) {
 		t.Errorf("payload json missing listening: %s", b)
 	}
 }
+
+func TestClassify(t *testing.T) {
+	if m, _ := classify([]string{"up", "x"}); !m {
+		t.Error("up must serialize")
+	}
+	if m, k := classify([]string{"run", "dev", "t1"}); m || k != "dev|t1" {
+		t.Errorf("run must be concurrent, keyed: %v %q", m, k)
+	}
+	a, _ := classify([]string{"run", "dev", "t1"})
+	b, _ := classify([]string{"run", "dev", "t2"})
+	if a != b { // both false; keys differ — different trees never collide
+		t.Error("unexpected")
+	}
+}

@@ -195,22 +195,29 @@
 <div class="overlay" id="overlay"><div class="dialog" id="dialog"></div></div>
 
 <script>
-let data = null, meta = null;
+let data = null, meta = null, activeOps = [];
+const starting = new Set(); // trees whose dev was just clicked, pre-registry
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
 
 /* ── data ── */
 async function refresh() {
   try {
-    const [s, m] = await Promise.all([fetch('/api/status'), fetch('/api/meta')]);
+    const [s, m, o] = await Promise.all([fetch('/api/status'), fetch('/api/meta'), fetch('/api/ops')]);
     if (!s.ok) throw new Error(await s.text());
     data = await s.json();
     meta = m.ok ? await m.json() : meta;
+    activeOps = o.ok ? (await o.json()) || [] : activeOps;
     render();
   } catch (e) {
-    $('treeGroups').className = 'err';
-    $('treeGroups').textContent = 'Cannot reach vtree: ' + e.message;
+    $('emptyMsg').hidden = false;
+    $('emptyMsg').textContent = 'Cannot reach vtree: ' + e.message;
   }
+}
+
+// The active op for a command on a tree, if any (args: ["run", cmd, tree]).
+function runningOp(cmd, tree) {
+  return activeOps.find(o => o.args[0] === 'run' && o.args[1] === cmd && o.args[2] === tree);
 }
 
 /* ── rendering ── */
@@ -241,11 +248,82 @@ function cardTitle(t) {
   return esc(t.name);
 }
 function rowActions(t) {
-  const cmds = (meta && meta.commands || []).slice(0, 2)
+  // dev is a toggle: start silently, then the button becomes ■ stop with a
+  // logs link. A long-running server has no business living in a modal.
+  let dev = '';
+  if ((meta.commands || []).includes('dev')) {
+    const op = runningOp('dev', t.name);
+    if (op) {
+      dev = `<button class="icon" onclick="stopDev('${op.id}')" title="stop the dev stack">■ stop</button>` +
+            `<button class="icon" onclick="attachLogs('${op.id}','dev ${t.name}')" title="dev output">logs</button>`;
+    } else if (starting.has(t.name)) {
+      dev = `<button class="icon" disabled>starting…</button>`;
+    } else {
+      dev = `<button class="icon" onclick="startDev('${t.name}')">▶ dev</button>`;
+    }
+  }
+  const others = (meta.commands || []).filter(c => c !== 'dev').slice(0, 2)
     .map(c => `<button class="icon" onclick="runCmd('${c}','${t.name}')">${c}</button>`).join('');
   const adopt = t.has_manifest ? '' : `<button class="icon" onclick="doAdopt('${t.name}')">adopt</button>`;
   const rename = t.has_manifest ? `<button class="icon" onclick="askRename('${t.name}')" title="set display name">✎</button>` : '';
-  return `${adopt}${cmds}${rename}<button class="icon" onclick="askDelete('${t.name}')" title="remove tree">🗑</button>`;
+  return `${adopt}${dev}${others}${rename}<button class="icon" onclick="askDelete('${t.name}')" title="remove tree">🗑</button>`;
+}
+
+async function startDev(name) {
+  starting.add(name);
+  render();
+  try {
+    const r = await fetch('/api/actions/run', { method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ command: 'dev', name }) });
+    const j = await r.json().catch(() => ({}));
+    const id = r.status === 409 ? j.running : j.id;
+    if (!r.ok && r.status !== 409) throw new Error(j.error || r.statusText);
+    // Watch quietly in the background: if the stack dies early (missing
+    // tool, port clash), surface the log; if it stays up, just let the
+    // LIVE markers and the ■ stop button tell the story.
+    const es = new EventSource(`/api/ops/${id}/stream`);
+    const guard = setTimeout(() => es.close(), 20000);
+    es.addEventListener('done', ev => {
+      clearTimeout(guard); es.close();
+      if (JSON.parse(ev.data).failed) attachLogs(id, 'dev ' + name + ' — failed');
+      refresh();
+    });
+  } catch (e) {
+    alert('dev failed to start: ' + e.message);
+  }
+  setTimeout(() => { starting.delete(name); refresh(); }, 1500);
+}
+
+async function stopDev(opId) {
+  await fetch(`/api/ops/${opId}/cancel`, { method: 'POST' });
+  setTimeout(refresh, 800);
+}
+
+// attachLogs opens the console modal on an EXISTING op — replay + follow —
+// with Stop available while it still runs.
+function attachLogs(opId, title) {
+  openModal(`
+    <header><h3 class="mono">${esc(title)}</h3></header>
+    <div class="dbody">${consoleBlock()}</div>
+    <div class="foot">
+      <button class="danger" id="opCancel">Stop</button>
+      <button onclick="closeModal()">Close</button>
+    </div>`);
+  $('opCancel').onclick = () => fetch(`/api/ops/${opId}/cancel`, { method: 'POST' });
+  $('opStatus').innerHTML = '<span class="spin"></span> running…';
+  const es = new EventSource(`/api/ops/${opId}/stream`);
+  es.onmessage = ev => {
+    $('opConsole').textContent += ev.data + '\n';
+    $('opConsole').scrollTop = $('opConsole').scrollHeight;
+  };
+  es.addEventListener('done', ev => {
+    es.close();
+    const failed = JSON.parse(ev.data).failed;
+    $('opStatus').innerHTML = failed ? '<span style="color:var(--bad)">✗ failed</span>'
+                                     : '<span style="color:var(--good)">✓ done</span>';
+    $('opCancel').disabled = true;
+  });
 }
 function portsInline(t) {
   if (!t.ports) return '<span class="off">—</span>';
