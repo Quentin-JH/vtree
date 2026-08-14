@@ -172,7 +172,8 @@
 
   <div class="sect"><span>SOURCE REPOSITORIES</span>
     <div class="tools">
-      <button class="icon" id="refreshBtn" title="git fetch every source repo">⟳ Refresh</button>
+      <span id="refreshStatus" style="font-size:12px"></span>
+      <button class="icon" id="refreshBtn" title="fetch + fast-forward every source repo">⟳ Refresh</button>
       <button class="icon" id="installBtn" hidden>Install</button>
     </div>
   </div>
@@ -552,9 +553,22 @@ $('installBtn').onclick = () => {
 };
 
 $('refreshBtn').onclick = async () => {
-  $('refreshBtn').disabled = true; $('refreshBtn').textContent = '⟳ Fetching…';
-  try { await fetch('/api/refresh', { method: 'POST' }); } catch (e) {}
-  $('refreshBtn').disabled = false; $('refreshBtn').textContent = '⟳ Refresh';
+  const b = $('refreshBtn'), s = $('refreshStatus');
+  b.disabled = true; b.textContent = '⟳ Fetching…'; s.textContent = '';
+  try {
+    const r = await fetch('/api/refresh', { method: 'POST' });
+    if (!r.ok) throw new Error(await r.text());
+    const { results } = await r.json();
+    const errs = results.filter(x => x.error);
+    const pulled = results.reduce((n, x) => n + (x.pulled || 0), 0);
+    s.style.color = errs.length ? 'var(--bad)' : 'var(--good)';
+    s.textContent = errs.length ? errs.map(x => `${x.repo}: ${x.error}`).join(' · ')
+                  : pulled ? `pulled ${pulled} commit${pulled > 1 ? 's' : ''}` : 'already up to date';
+  } catch (e) {
+    s.style.color = 'var(--bad)'; s.textContent = e.message;
+  }
+  b.disabled = false; b.textContent = '⟳ Refresh';
+  setTimeout(() => { s.textContent = ''; }, 8000);
   refresh();
 };
 

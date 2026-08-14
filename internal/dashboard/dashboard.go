@@ -277,8 +277,11 @@ func Handler(root, version string) *http.ServeMux {
 		json.NewEncoder(w).Encode(map[string]any{"warnings": warnings})
 	})
 
-	// POST /api/refresh — fetch origin in every source repo, so the behind
-	// counts and the next `up` see fresh remote refs. Synchronous; seconds.
+	// POST /api/refresh — fetch origin in every source repo, then fast-forward
+	// the clone's checked-out branch. Fetch alone only updates git's knowledge
+	// of the remote; without the ff-pull the behind-count never moves and the
+	// button looks like it does nothing. ff-only never rewrites or merges — a
+	// diverged or conflicted clone reports instead of changing.
 	mux.HandleFunc("/api/refresh", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "POST only", http.StatusMethodNotAllowed)
@@ -289,13 +292,33 @@ func Handler(root, version string) *http.ServeMux {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		for _, repo := range ws.Config.Repos {
-			if _, err := gitx.Run(ws.RepoPath(repo.Name), "fetch", "-q", "origin"); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
+		type result struct {
+			Repo   string `json:"repo"`
+			Pulled int    `json:"pulled"` // commits the clone moved forward
+			Error  string `json:"error,omitempty"`
 		}
-		w.WriteHeader(http.StatusNoContent)
+		var results []result
+		for _, repo := range ws.Config.Repos {
+			res := result{Repo: repo.Name}
+			path := ws.RepoPath(repo.Name)
+			if _, err := gitx.Run(path, "fetch", "-q", "origin"); err != nil {
+				res.Error = err.Error()
+				results = append(results, res)
+				continue
+			}
+			before, _ := gitx.Run(path, "rev-parse", "HEAD")
+			if _, err := gitx.Run(path, "pull", "--ff-only", "-q"); err != nil {
+				res.Error = "fetched, but cannot fast-forward: " + err.Error()
+				results = append(results, res)
+				continue
+			}
+			if n, err := gitx.Run(path, "rev-list", "--count", before+"..HEAD"); err == nil {
+				fmt.Sscanf(n, "%d", &res.Pulled)
+			}
+			results = append(results, res)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"results": results})
 	})
 
 	mux.HandleFunc("/api/status", func(w http.ResponseWriter, r *http.Request) {
