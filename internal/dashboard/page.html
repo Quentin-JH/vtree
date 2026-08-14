@@ -5,29 +5,34 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>vtree</title>
 <style>
+  /* Velera design tokens — mirrors velera-crm web/src/index.css.
+     Dark-first (void black, raised surfaces), gold CTA, teal positive,
+     critical red. Status semantics: clean/live = teal, dirty = gold,
+     unpushed/unverifiable = critical — always paired with a text label. */
   :root {
-    --side: #f0f1f4; --bg: #f7f8fa; --card: #ffffff; --row: #ffffff;
-    --border: #e2e5ea; --ink: #1c2128; --ink-2: #57606a; --ink-3: #8b949e;
-    --accent: #2f6fed; --accent-ink: #ffffff;
-    --good: #1a7f37; --warn: #b45309; --bad: #cf222e;
-    --chip: #eceef2; --console: #0d1117; --console-ink: #c9d1d9;
-    --overlay: rgba(20,24,30,.45); --hover: rgba(0,0,0,.04);
-    --warn-bg: #fff8c5; --good-bg: #dafbe1;
+    --side: #fafafa; --bg: #ffffff; --card: #f2f2f2; --row: #f2f2f2;
+    --border: #d8d8d8; --ink: #000000; --ink-2: #6b6b6b; --ink-3: #9e9e9e;
+    --accent: #9a6e00; --accent-ink: #fcedc7;
+    --good: #2e8577; --warn: #9a6e00; --bad: #d92d20;
+    --chip: #ececec; --console: #0a0a0a; --console-ink: #d8d8d8;
+    --overlay: rgba(0,0,0,.45); --hover: #ececec;
+    --warn-bg: #fcedc7; --good-bg: #e2f1ee;
+    --radius: 14px;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --side: #111318; --bg: #16191f; --card: #1b1f27; --row: #1b1f27;
-      --border: #262b34; --ink: #e6edf3; --ink-2: #9da7b3; --ink-3: #6e7681;
-      --accent: #3b82f6; --accent-ink: #ffffff;
-      --good: #3fb950; --warn: #e3a008; --bad: #f85149;
-      --chip: #262b34; --console: #0b0d12; --console-ink: #c9d1d9;
-      --overlay: rgba(0,0,0,.6); --hover: rgba(255,255,255,.05);
-      --warn-bg: #2a2210; --good-bg: #12261e;
+      --side: #0a0a0a; --bg: #000000; --card: #141414; --row: #141414;
+      --border: #2e2e2e; --ink: #ffffff; --ink-2: #9a9a9a; --ink-3: #666666;
+      --accent: #ffc107; --accent-ink: #2a1d02;
+      --good: #5db8ae; --warn: #ffc107; --bad: #f04438;
+      --chip: #1f1f1f; --console: #0a0a0a; --console-ink: #d8d8d8;
+      --overlay: rgba(0,0,0,.65); --hover: #1c1c1c;
+      --warn-bg: #2a1d02; --good-bg: #10231f;
     }
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--ink); height: 100vh; display: flex;
-         font: 14px/1.5 ui-sans-serif, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
+         font: 14px/1.5 'Inter', ui-sans-serif, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
   .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 
   /* ── sidebar ── */
@@ -48,7 +53,7 @@
   /* ── main ── */
   .main { flex: 1; overflow-y: auto; padding: 26px 32px 48px; }
   .titlebar { display: flex; align-items: flex-start; gap: 10px; }
-  .titlebar h1 { margin: 0; font-size: 22px; }
+  .titlebar h1 { margin: 0; font-size: 22px; font-family: 'Sora', 'Inter', ui-sans-serif, sans-serif; }
   .titlebar .right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
   .path { color: var(--ink-3); font-size: 12.5px; margin: 2px 0 14px; }
   .stats { display: flex; gap: 56px; padding: 6px 0 18px; border-bottom: 1px solid var(--border);
@@ -71,7 +76,7 @@
 
   .group-label { font-size: 11px; letter-spacing: .08em; color: var(--ink-3); font-weight: 600;
                  margin: 16px 0 8px; }
-  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
           padding: 14px 16px; margin-bottom: 10px; display: flex; gap: 12px; }
   .card .body { flex: 1; min-width: 0; }
   .card h3 { margin: 0 0 6px; font-size: 15px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
@@ -104,7 +109,7 @@
   .overlay { position: fixed; inset: 0; background: var(--overlay); display: none;
              align-items: flex-start; justify-content: center; padding-top: 9vh; z-index: 10; }
   .overlay.open { display: flex; }
-  .dialog { background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+  .dialog { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
             width: min(680px, 92vw); max-height: 82vh; display: flex; flex-direction: column;
             box-shadow: 0 16px 48px rgba(0,0,0,.35); }
   .dialog header { padding: 16px 20px 8px; }
