@@ -112,7 +112,7 @@ func EnvPorts(treeDir string, cfg *config.Config) []int {
 			}
 			values := envValues(string(data), portKeys)
 			for _, v := range values {
-				for _, p := range extractPorts(v) {
+				for _, p := range PortsInValue(v) {
 					out = append(out, p)
 				}
 			}
@@ -133,9 +133,9 @@ func envValues(content string, keys []string) []string {
 	return out
 }
 
-// extractPorts pulls port numbers out of an env value, which may be a bare
+// PortsInValue pulls port numbers out of an env value, which may be a bare
 // number ("4100") or a URL ("http://localhost:4100/api").
-func extractPorts(v string) []int {
+func PortsInValue(v string) []int {
 	var out []int
 	for i := 0; i < len(v); i++ {
 		if v[i] < '0' || v[i] > '9' {
