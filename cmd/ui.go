@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -78,6 +79,11 @@ func installAgent(root string, port int) error {
 	if err != nil {
 		return err
 	}
+	// launchd gives agents a bare-bones PATH — no homebrew, no nvm, no Herd —
+	// so setup and dev scripts spawned through the app would miss node, php,
+	// and composer. Capture the PATH of the shell running --install (the
+	// user's real one) into the service definition, the way ramp's app
+	// sources the login shell before spawning its backend.
 	plist := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
@@ -87,10 +93,13 @@ func installAgent(root string, port int) error {
     <string>--port</string><string>%d</string>
   </array>
   <key>WorkingDirectory</key><string>%s</string>
+  <key>EnvironmentVariables</key><dict>
+    <key>PATH</key><string>%s</string>
+  </dict>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
 </dict></plist>
-`, launchAgentLabel, self, port, root)
+`, launchAgentLabel, self, port, root, xmlEscape(os.Getenv("PATH")))
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
@@ -105,6 +114,11 @@ func installAgent(root string, port int) error {
 	fmt.Printf("installed: the vtree app now runs at login → http://127.0.0.1:%d\n", port)
 	fmt.Println("tip: in your browser, use \"Add to Dock\" / \"Install page as app\" for a Dock icon")
 	return nil
+}
+
+func xmlEscape(s string) string {
+	r := strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;")
+	return r.Replace(s)
 }
 
 func uninstallAgent() error {
