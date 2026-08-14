@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/Quentin-JH/vtree/internal/gitx"
 	"github.com/Quentin-JH/vtree/internal/manifest"
@@ -114,7 +115,9 @@ func (t TreeInfo) UnpushedCount() int {
 	return n
 }
 
-// Collect builds the ls/status rows for every tree directory.
+// Collect builds the ls/status rows for every tree directory. Trees are
+// inspected concurrently — each costs a few git invocations, and a workspace
+// can hold dozens of trees.
 func Collect(ws *workspace.Workspace) ([]TreeInfo, error) {
 	entries, err := os.ReadDir(ws.TreesPath())
 	if os.IsNotExist(err) {
@@ -123,59 +126,74 @@ func Collect(ws *workspace.Workspace) ([]TreeInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	var out []TreeInfo
+	var dirs []string
 	for _, e := range entries {
-		if !e.IsDir() {
-			continue
+		if e.IsDir() {
+			dirs = append(dirs, e.Name())
 		}
-		name := e.Name()
-		treeDir := filepath.Join(ws.TreesPath(), name)
-		info := TreeInfo{Name: name, Repos: Inspect(ws, name)}
-
-		m, merr := manifest.Read(treeDir)
-		if merr == nil && m != nil {
-			info.HasManifest = true
-			info.Ports = m.Ports
-			info.Legacy = m.Legacy
-			info.Schemas = m.Schemas
-		}
-
-		// Reconcile port claims against the rendered .env — the .env is what
-		// the app binds, so a disagreement is worth a flag, and for a
-		// manifest-less tree the .env is the only source there is.
-		envPorts := ports.EnvPorts(treeDir, ws.Config)
-		if info.HasManifest && len(envPorts) > 0 {
-			claimed := map[int]bool{}
-			for _, p := range info.Ports {
-				claimed[p] = true
-			}
-			for _, p := range envPorts {
-				if !claimed[p] {
-					info.PortsDiverged = true
-				}
-			}
-		}
-		if !info.HasManifest && len(envPorts) > 0 {
-			// EnvPorts returns one entry per env key occurrence; several keys
-			// carry the same port. Dedupe for display.
-			uniq := map[int]bool{}
-			for _, p := range envPorts {
-				uniq[p] = true
-			}
-			var distinct []int
-			for p := range uniq {
-				distinct = append(distinct, p)
-			}
-			sort.Ints(distinct)
-			info.Ports = map[string]int{}
-			for i, p := range distinct {
-				info.Ports[fmt.Sprintf("p%d", i+1)] = p
-			}
-		}
-		out = append(out, info)
 	}
+	out := make([]TreeInfo, len(dirs))
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, 8)
+	for i, name := range dirs {
+		wg.Add(1)
+		go func(i int, name string) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			out[i] = collectOne(ws, name)
+		}(i, name)
+	}
+	wg.Wait()
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out, nil
+}
+
+func collectOne(ws *workspace.Workspace, name string) TreeInfo {
+	treeDir := filepath.Join(ws.TreesPath(), name)
+	info := TreeInfo{Name: name, Repos: Inspect(ws, name)}
+
+	m, merr := manifest.Read(treeDir)
+	if merr == nil && m != nil {
+		info.HasManifest = true
+		info.Ports = m.Ports
+		info.Legacy = m.Legacy
+		info.Schemas = m.Schemas
+	}
+
+	// Reconcile port claims against the rendered .env — the .env is what
+	// the app binds, so a disagreement is worth a flag, and for a
+	// manifest-less tree the .env is the only source there is.
+	envPorts := ports.EnvPorts(treeDir, ws.Config)
+	if info.HasManifest && len(envPorts) > 0 {
+		claimed := map[int]bool{}
+		for _, p := range info.Ports {
+			claimed[p] = true
+		}
+		for _, p := range envPorts {
+			if !claimed[p] {
+				info.PortsDiverged = true
+			}
+		}
+	}
+	if !info.HasManifest && len(envPorts) > 0 {
+		// EnvPorts returns one entry per env key occurrence; several keys
+		// carry the same port. Dedupe for display.
+		uniq := map[int]bool{}
+		for _, p := range envPorts {
+			uniq[p] = true
+		}
+		var distinct []int
+		for p := range uniq {
+			distinct = append(distinct, p)
+		}
+		sort.Ints(distinct)
+		info.Ports = map[string]int{}
+		for i, p := range distinct {
+			info.Ports[fmt.Sprintf("p%d", i+1)] = p
+		}
+	}
+	return info
 }
 
 func splitLines(s string) []string {

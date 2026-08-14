@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>vtree</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --surface: #ffffff; --border: #e2e5ea;
+    --ink: #1c2128; --ink-2: #57606a; --ink-3: #8b949e;
+    --good: #1a7f37; --warn: #9a6700; --bad: #cf222e;
+    --good-bg: #dafbe1; --warn-bg: #fff8c5; --bad-bg: #ffebe9;
+    --link: #0969da; --run: #1a7f37;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1117; --surface: #161b22; --border: #30363d;
+      --ink: #e6edf3; --ink-2: #9da7b3; --ink-3: #6e7681;
+      --good: #3fb950; --warn: #d29922; --bad: #f85149;
+      --good-bg: #12261e; --warn-bg: #272115; --bad-bg: #2d1618;
+      --link: #58a6ff; --run: #3fb950;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 14px/1.5 ui-sans-serif, -apple-system, "Segoe UI", sans-serif;
+  }
+  header {
+    display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+    padding: 18px 24px 10px;
+  }
+  header h1 { font-size: 18px; margin: 0; }
+  header .meta { color: var(--ink-3); font-size: 12px; }
+  .summary { color: var(--ink-2); font-size: 13px; }
+  .toolbar { padding: 0 24px 12px; display: flex; gap: 10px; align-items: center; }
+  input[type=search] {
+    background: var(--surface); border: 1px solid var(--border); color: var(--ink);
+    border-radius: 6px; padding: 5px 10px; font: inherit; width: 240px;
+  }
+  main { padding: 0 24px 32px; }
+  table { border-collapse: collapse; width: 100%; background: var(--surface);
+          border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  thead th {
+    text-align: left; font-size: 11px; letter-spacing: .04em; text-transform: uppercase;
+    color: var(--ink-3); font-weight: 600; padding: 8px 12px; border-bottom: 1px solid var(--border);
+  }
+  tbody td { padding: 7px 12px; border-bottom: 1px solid var(--border); vertical-align: baseline; }
+  tbody tr:last-child td { border-bottom: none; }
+  td.tree { font-weight: 600; white-space: nowrap; }
+  td.branch { color: var(--ink-2); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px; border-radius: 999px;
+    padding: 1px 9px; font-size: 12px; font-weight: 500; white-space: nowrap;
+  }
+  .badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .b-clean { color: var(--good); background: var(--good-bg); }
+  .b-dirty { color: var(--warn); background: var(--warn-bg); }
+  .b-risk  { color: var(--bad);  background: var(--bad-bg); }
+  .flag { color: var(--ink-3); font-size: 12px; margin-left: 6px; }
+  a.port { color: var(--link); text-decoration: none; font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; }
+  a.port:hover { text-decoration: underline; }
+  .live { color: var(--run); font-size: 11px; font-weight: 600; margin-left: 3px; }
+  .off  { color: var(--ink-3); }
+  .err { color: var(--bad); padding: 16px 24px; }
+  td.ports { white-space: nowrap; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="ws">vtree</h1>
+  <span class="summary" id="summary"></span>
+  <span class="meta" id="meta"></span>
+</header>
+<div class="toolbar">
+  <input type="search" id="filter" placeholder="Filter trees…" autocomplete="off">
+</div>
+<main><div id="content" class="err"></div></main>
+<script>
+let data = null;
+
+function badge(t) {
+  if (t.unpushed > 0 || t.repos.some(r => r.error))
+    return `<span class="badge b-risk">${t.repos.some(r => r.error) ? 'unverifiable' : t.unpushed + ' unpushed'}</span>`;
+  if (t.dirty > 0) return `<span class="badge b-dirty">${t.dirty} dirty</span>`;
+  return `<span class="badge b-clean">clean</span>`;
+}
+
+function flags(t) {
+  const f = [];
+  if (!t.has_manifest) f.push('no manifest — vtree adopt');
+  if (t.legacy) f.push('legacy: ' + t.legacy);
+  if (t.ports_diverged) f.push('ports diverged from .env');
+  return f.map(x => `<span class="flag">${x}</span>`).join('');
+}
+
+function portCell(t) {
+  if (!t.ports) return '<span class="off">—</span>';
+  return Object.entries(t.ports).sort((a, b) => a[1] - b[1]).map(([name, p]) => {
+    const on = t.listening && t.listening[name];
+    return `<a class="port" href="http://localhost:${p}" target="_blank">:${p}</a>` +
+           (on ? '<span class="live">●&nbsp;live</span>' : '');
+  }).join(' &nbsp;');
+}
+
+function branchCell(t) {
+  const b = [...new Set(t.repos.map(r => r.branch).filter(Boolean))];
+  return b.join(', ') || '?';
+}
+
+function render() {
+  if (!data) return;
+  const q = document.getElementById('filter').value.toLowerCase();
+  const trees = data.trees.filter(t => !q || t.name.toLowerCase().includes(q) || branchCell(t).toLowerCase().includes(q));
+  const dirty = data.trees.filter(t => t.dirty > 0).length;
+  const unpushed = data.trees.filter(t => t.unpushed > 0).length;
+  const live = data.trees.filter(t => t.listening && Object.values(t.listening).some(Boolean)).length;
+
+  document.getElementById('ws').textContent = data.workspace;
+  document.getElementById('summary').textContent =
+    `${data.trees.length} trees · ${dirty} dirty · ${unpushed} unpushed · ${live} running`;
+  document.getElementById('meta').textContent =
+    `vtree ${data.version} · refreshed ${new Date(data.generated_at).toLocaleTimeString()}`;
+
+  document.getElementById('content').className = '';
+  document.getElementById('content').innerHTML = `
+    <table>
+      <thead><tr><th>State</th><th>Tree</th><th>Branch</th><th>Ports</th></tr></thead>
+      <tbody>${trees.map(t => `
+        <tr>
+          <td>${badge(t)}</td>
+          <td class="tree">${t.name}${flags(t)}</td>
+          <td class="branch">${branchCell(t)}</td>
+          <td class="ports">${portCell(t)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+async function refresh() {
+  try {
+    const r = await fetch('/api/status');
+    if (!r.ok) throw new Error(await r.text());
+    data = await r.json();
+    render();
+  } catch (e) {
+    const c = document.getElementById('content');
+    c.className = 'err';
+    c.textContent = 'Cannot reach vtree: ' + e.message;
+  }
+}
+
+document.getElementById('filter').addEventListener('input', render);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
+refresh();
+setInterval(() => { if (!document.hidden) refresh(); }, 10000);
+</script>
+</body>
+</html>
