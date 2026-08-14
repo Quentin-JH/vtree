@@ -168,6 +168,14 @@
     <span id="statMeta" style="margin-left:auto;color:var(--ink-3)"></span>
   </div>
 
+  <div class="sect"><span>SOURCE REPOSITORIES</span>
+    <div class="tools">
+      <button class="icon" id="refreshBtn" title="git fetch every source repo">⟳ Refresh</button>
+      <button class="icon" id="installBtn" hidden>Install</button>
+    </div>
+  </div>
+  <div id="repoRows"></div>
+
   <div id="flightSect" hidden>
     <div class="sect"><span id="flightLabel">IN FLIGHT</span></div>
     <div id="flightCards"></div>
@@ -182,14 +190,6 @@
   </div>
 
   <div id="emptyMsg" class="err" hidden></div>
-
-  <div class="sect"><span>SOURCE REPOSITORIES</span>
-    <div class="tools">
-      <button class="icon" id="refreshBtn" title="git fetch every source repo">⟳ Refresh</button>
-      <button class="icon" id="installBtn" hidden>Install</button>
-    </div>
-  </div>
-  <div id="repoRows"></div>
 </div>
 
 <div class="overlay" id="overlay"><div class="dialog" id="dialog"></div></div>
