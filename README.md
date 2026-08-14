@@ -1,0 +1,57 @@
+# vtree
+
+Multi-repo git-worktree workspaces with per-tree MySQL schemas.
+
+vtree manages a workspace of **trees**: one directory per feature, holding a git worktree for
+every configured repo, with its own allocated ports and its own MySQL schemas (`<prefix><tree>`
+and `<prefix><tree>_test`). Local dev runs on the same engine production runs on — there is no
+SQLite mode.
+
+It is deliberately conservative about destruction:
+
+- **There is no `prune` and no bulk removal.** Trees are removed by name, one at a time.
+  No heuristic can reliably tell a finished tree from one that is merged *and* still being
+  worked in — we have the data-loss incident to prove it.
+- **`down` refuses by default** when a tree holds uncommitted changes (untracked files count)
+  or commits that exist on no remote. Removing a worktree deletes its branch, so unpushed
+  commits die with it. `--force` must be typed. If vtree cannot *verify* a repo's state, that
+  is also a refusal — errors fail closed.
+
+## Layout
+
+```
+workspace/
+├── .vtree/
+│   ├── vtree.yaml     # workspace definition — committed, shared
+│   ├── local.yaml     # this machine only (DB credentials) — gitignored
+│   ├── scripts/       # setup + custom commands
+│   └── templates/     # files copied into each new tree
+├── repos/             # source clones (one per configured repo)
+└── trees/<name>/      # one worktree per repo, plus a .vtree-tree.json manifest
+```
+
+## Commands
+
+| Command | What it does |
+| --- | --- |
+| `vtree init` | Scaffold a workspace interactively |
+| `vtree install` | Clone the configured repos |
+| `vtree up <name>` | Create a tree: branches, ports, schemas, env files, setup |
+| `vtree down <name>` | Remove a tree; refuses if work would be lost |
+| `vtree ls` / `status --json` | Trees with ports, branches, dirty/unpushed state |
+| `vtree run <cmd> [tree]` | Run a workspace-defined command |
+| `vtree pr <tree>` | Push and open PRs, with a wrong-base drift guard |
+| `vtree adopt <tree>` | Bring a pre-vtree tree under management |
+| `vtree doctor` | Check prerequisites and workspace health |
+
+## Status
+
+Early — `doctor` and `version` work; `up`/`down`/`ls` are being built. See the plan in the
+project notes. The first consumer is the velera-crm workspace.
+
+## Development
+
+```
+go test ./...
+go build -ldflags "-X github.com/Quentin-JH/vtree/cmd.Version=$(git describe --tags --always)"
+```
