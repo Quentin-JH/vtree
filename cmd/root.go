@@ -21,5 +21,6 @@ time, and 'down' refuses when uncommitted or unpushed work would be lost.`,
 }
 
 func Execute() error {
+	registerWorkspaceCommands()
 	return rootCmd.Execute()
 }
