@@ -29,7 +29,11 @@ func init() {
 			}
 			fmt.Printf("  %s\n", bold(fmt.Sprintf("%-26s %-12s %-34s %s", "TREE", "PORTS", "BRANCH", "STATE")))
 			for _, t := range infos {
-				fmt.Printf("  %-26s %-12s %-34s %s\n", t.Name, portsCol(t), branchCol(t), stateCol(t))
+				state := stateCol(t)
+				if t.DisplayName != "" {
+					state += " " + dim("“"+t.DisplayName+"”")
+				}
+				fmt.Printf("  %-26s %-12s %-34s %s\n", t.Name, portsCol(t), branchCol(t), state)
 			}
 			return nil
 		},

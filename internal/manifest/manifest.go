@@ -21,11 +21,14 @@ import (
 const FileName = ".vtree-tree.json"
 
 type Manifest struct {
-	Name      string            `json:"name"`
-	CreatedAt time.Time         `json:"created_at"`
-	Ports     map[string]int    `json:"ports,omitempty"`
-	Schemas   map[string]string `json:"schemas,omitempty"`
-	Branches  map[string]string `json:"branches,omitempty"` // repo name → branch
+	Name      string    `json:"name"`
+	CreatedAt time.Time `json:"created_at"`
+	// DisplayName is a human label shown alongside the tree name — the tree
+	// name stays the identifier everywhere (directories, branches, schemas).
+	DisplayName string            `json:"display_name,omitempty"`
+	Ports       map[string]int    `json:"ports,omitempty"`
+	Schemas     map[string]string `json:"schemas,omitempty"`
+	Branches    map[string]string `json:"branches,omitempty"` // repo name → branch
 	// Legacy marks trees adopted from before this tool whose database story
 	// does not match the workspace config (e.g. "sqlite"). Database-touching
 	// commands refuse on legacy trees rather than pointing env at schemas
@@ -52,6 +55,28 @@ func Claim(treeDir string, m *Manifest) error {
 	enc := json.NewEncoder(f)
 	enc.SetIndent("", "  ")
 	return enc.Encode(m)
+}
+
+// SetDisplayName updates the label in a tree's manifest. Written via a temp
+// file + rename so a concurrent reader never sees a half-written manifest.
+func SetDisplayName(treeDir, display string) error {
+	m, err := Read(treeDir)
+	if err != nil {
+		return err
+	}
+	if m == nil {
+		return fmt.Errorf("tree has no manifest — run `vtree adopt` first")
+	}
+	m.DisplayName = display
+	data, err := json.MarshalIndent(m, "", "  ")
+	if err != nil {
+		return err
+	}
+	tmp := Path(treeDir) + ".tmp"
+	if err := os.WriteFile(tmp, append(data, '\n'), 0o644); err != nil {
+		return err
+	}
+	return os.Rename(tmp, Path(treeDir))
 }
 
 // Read returns the manifest for a tree directory, or (nil, nil) when the tree

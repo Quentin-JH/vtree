@@ -223,19 +223,53 @@ function cardFlags(t) {
   if (t.ports_diverged) f.push('ports diverged');
   return f.map(x => `<span class="flag">${esc(x)}</span>`).join('');
 }
+function cardTitle(t) {
+  if (t.display_name)
+    return `${esc(t.display_name)} <span class="mono" style="color:var(--ink-3);font-size:12.5px;font-weight:400">(${esc(t.name)})</span>`;
+  return esc(t.name);
+}
 function card(t) {
   const cmds = (meta && meta.commands || []).slice(0, 2)
     .map(c => `<button class="icon" onclick="runCmd('${c}','${t.name}')">${c}</button>`).join('');
   const adopt = t.has_manifest ? '' : `<button class="icon" onclick="doAdopt('${t.name}')">adopt</button>`;
+  const rename = t.has_manifest ? `<button class="icon" onclick="askRename('${t.name}')" title="set display name">✎</button>` : '';
   return `<div class="card">
     <div class="body">
-      <h3>${esc(t.name)}${cardFlags(t)}</h3>
+      <h3>${cardTitle(t)}${cardFlags(t)}</h3>
       ${repoStatusLines(t)}
       ${portLine(t)}
     </div>
-    <div class="acts">${adopt}${cmds}
+    <div class="acts">${adopt}${cmds}${rename}
       <button class="icon" onclick="askDelete('${t.name}')" title="remove tree">🗑</button></div>
   </div>`;
+}
+
+function askRename(name) {
+  const t = data.trees.find(x => x.name === name) || {};
+  openModal(`
+    <header><h3>Display name for <span class="mono">${esc(name)}</span></h3></header>
+    <div class="dbody">
+      <div class="row"><input type="text" id="rnVal" placeholder="e.g. Crew Contribution Tracking" style="flex:1"
+        value="${esc(t.display_name || '')}"></div>
+      <div style="font-size:12.5px;color:var(--ink-3)">A label only — the directory, branch, and schemas keep
+      the tree name. Leave empty to clear.</div>
+      <div id="rnErr" class="err" style="padding:0" hidden></div>
+    </div>
+    <div class="foot">
+      <button onclick="closeModal()">Cancel</button>
+      <button class="primary" id="rnGo">Save</button>
+    </div>`);
+  $('rnVal').focus();
+  const save = async () => {
+    try {
+      const r = await fetch('/api/rename', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, display: $('rnVal').value }) });
+      if (!r.ok) throw new Error(await r.text());
+      closeModal();
+    } catch (e) { $('rnErr').hidden = false; $('rnErr').textContent = e.message; }
+  };
+  $('rnGo').onclick = save;
+  $('rnVal').addEventListener('keydown', e => { if (e.key === 'Enter') save(); });
 }
 function inFlight(t) {
   return t.dirty > 0 || t.unpushed > 0 ||
@@ -247,6 +281,7 @@ function render() {
   if (!data || !meta) return;
   const q = $('filter').value.toLowerCase();
   const match = t => !q || t.name.toLowerCase().includes(q) ||
+    (t.display_name || '').toLowerCase().includes(q) ||
     t.repos.some(r => (r.branch || '').toLowerCase().includes(q));
 
   $('sideName').textContent = meta.name;

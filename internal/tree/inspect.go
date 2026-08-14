@@ -99,6 +99,7 @@ func Inspect(ws *workspace.Workspace, name string) []RepoState {
 // TreeInfo is one row of ls / status.
 type TreeInfo struct {
 	Name          string            `json:"name"`
+	DisplayName   string            `json:"display_name,omitempty"`
 	Ports         map[string]int    `json:"ports,omitempty"`
 	PortsDiverged bool              `json:"ports_diverged,omitempty"`
 	HasManifest   bool              `json:"has_manifest"`
@@ -164,6 +165,7 @@ func collectOne(ws *workspace.Workspace, name string) TreeInfo {
 	m, merr := manifest.Read(treeDir)
 	if merr == nil && m != nil {
 		info.HasManifest = true
+		info.DisplayName = m.DisplayName
 		info.Ports = m.Ports
 		info.Legacy = m.Legacy
 		info.Schemas = m.Schemas

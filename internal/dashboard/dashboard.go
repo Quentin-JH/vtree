@@ -11,11 +11,13 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/Quentin-JH/vtree/internal/gitx"
+	"github.com/Quentin-JH/vtree/internal/manifest"
 	"github.com/Quentin-JH/vtree/internal/tree"
 	"github.com/Quentin-JH/vtree/internal/workspace"
 )
@@ -208,6 +210,32 @@ func Handler(root, version string) *http.ServeMux {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(out)
+	})
+
+	// POST /api/rename — set or clear a tree's display name. Instant and
+	// non-destructive, so it skips the op ceremony.
+	mux.HandleFunc("/api/rename", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "POST only", http.StatusMethodNotAllowed)
+			return
+		}
+		var body map[string]string
+		json.NewDecoder(r.Body).Decode(&body)
+		ws, err := workspace.Open(root)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		treeDir := filepath.Join(ws.TreesPath(), body["name"])
+		if _, err := os.Stat(treeDir); err != nil {
+			http.Error(w, "no such tree", http.StatusNotFound)
+			return
+		}
+		if err := manifest.SetDisplayName(treeDir, strings.TrimSpace(body["display"])); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
 	})
 
 	// POST /api/refresh — fetch origin in every source repo, so the behind

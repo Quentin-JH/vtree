@@ -26,7 +26,7 @@ import (
 // the workspace defined, and a builtin must never be unreachable.
 var Builtins = []string{
 	"adopt", "doctor", "down", "help", "init", "install",
-	"ls", "pr", "run", "status", "up", "version",
+	"ls", "pr", "rename", "run", "status", "ui", "up", "version",
 }
 
 type Config struct {
