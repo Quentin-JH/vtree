@@ -97,6 +97,8 @@
   .rline .st { color: var(--ink-2); }
   .pline { margin-top: 8px; font-size: 12.5px; }
   a.port { color: var(--accent); text-decoration: none; }
+  .portlabel { color: var(--ink-3); font-size: 11.5px; text-transform: uppercase; letter-spacing: .03em; }
+  .portsep { display: inline-block; width: 14px; }
   a.port:hover { text-decoration: underline; }
   .live { color: var(--good); font-size: 11px; font-weight: 700; margin: 0 8px 0 3px; }
   .card .acts { display: flex; gap: 6px; align-items: flex-start; }
@@ -329,9 +331,9 @@ function portsInline(t) {
   if (!t.ports) return '<span class="off">—</span>';
   return Object.entries(t.ports).sort((a, b) => a[1] - b[1]).map(([name, p]) => {
     const on = t.listening && t.listening[name];
-    return `<a class="port mono" href="http://localhost:${p}" target="_blank">:${p}</a>` +
-           (on ? '<span class="live">● LIVE</span>' : ' ');
-  }).join(' ');
+    return `<span class="portlabel">${esc(name)}</span> <a class="port mono" href="http://localhost:${p}" target="_blank">:${p}</a>` +
+           (on ? '<span class="live">● LIVE</span>' : '') + '<span class="portsep"></span>';
+  }).join('');
 }
 function card(t) {
   return `<div class="card">
