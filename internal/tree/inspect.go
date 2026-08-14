@@ -156,9 +156,19 @@ func Collect(ws *workspace.Workspace) ([]TreeInfo, error) {
 			}
 		}
 		if !info.HasManifest && len(envPorts) > 0 {
+			// EnvPorts returns one entry per env key occurrence; several keys
+			// carry the same port. Dedupe for display.
+			uniq := map[int]bool{}
+			for _, p := range envPorts {
+				uniq[p] = true
+			}
+			var distinct []int
+			for p := range uniq {
+				distinct = append(distinct, p)
+			}
+			sort.Ints(distinct)
 			info.Ports = map[string]int{}
-			sort.Ints(envPorts)
-			for i, p := range envPorts {
+			for i, p := range distinct {
 				info.Ports[fmt.Sprintf("p%d", i+1)] = p
 			}
 		}

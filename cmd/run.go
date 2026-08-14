@@ -11,9 +11,12 @@ import (
 
 func init() {
 	runCmd := &cobra.Command{
-		Use:   "run <command> [tree] [-- args...]",
+		Use:   "run <command> [tree] [args...]",
 		Short: "Run a workspace-defined command",
-		Args:  cobra.MinimumNArgs(1),
+		// Raw pass-through — everything after the command name belongs to
+		// the script, flags included.
+		DisableFlagParsing: true,
+		Args:               cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cwd, _ := os.Getwd()
 			ws, err := workspace.Open(cwd)
@@ -55,6 +58,9 @@ func registerWorkspaceCommands() {
 		rootCmd.AddCommand(&cobra.Command{
 			Use:   use,
 			Short: "(workspace) " + cc.Command,
+			// Raw pass-through: `vtree test <tree> --filter=X` must hand
+			// --filter to the script, not die on an unknown cobra flag.
+			DisableFlagParsing: true,
 			RunE: func(cmd *cobra.Command, args []string) error {
 				treeName := ""
 				if cc.Scope == "tree" && len(args) > 0 {
