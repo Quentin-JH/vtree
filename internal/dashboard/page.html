@@ -19,8 +19,11 @@
     --warn-bg: #fcedc7; --good-bg: #e2f1ee;
     --radius: 14px;
   }
+  /* Theme: :root carries light; dark applies via system preference unless
+     the user picked light, and via an explicit pick regardless of system.
+     Same data-theme pattern velera-crm's own frontend uses. */
   @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not([data-theme='light']) {
       --side: #0a0a0a; --bg: #000000; --card: #141414; --row: #141414;
       --border: #2e2e2e; --ink: #ffffff; --ink-2: #9a9a9a; --ink-3: #666666;
       --accent: #ffc107; --accent-ink: #2a1d02;
@@ -29,6 +32,15 @@
       --overlay: rgba(0,0,0,.65); --hover: #1c1c1c;
       --warn-bg: #2a1d02; --good-bg: #10231f;
     }
+  }
+  :root[data-theme='dark'] {
+      --side: #0a0a0a; --bg: #000000; --card: #141414; --row: #141414;
+      --border: #2e2e2e; --ink: #ffffff; --ink-2: #9a9a9a; --ink-3: #666666;
+      --accent: #ffc107; --accent-ink: #2a1d02;
+      --good: #5db8ae; --warn: #ffc107; --bad: #f04438;
+      --chip: #1f1f1f; --console: #0a0a0a; --console-ink: #d8d8d8;
+      --overlay: rgba(0,0,0,.65); --hover: #1c1c1c;
+      --warn-bg: #2a1d02; --good-bg: #10231f;
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--ink); height: 100vh; display: flex;
@@ -572,15 +584,34 @@ $('refreshBtn').onclick = async () => {
   refresh();
 };
 
+/* ── theme ── */
+function applyTheme(t) {
+  if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+  else delete document.documentElement.dataset.theme; // system
+}
+function setTheme(t) {
+  if (t === 'system') localStorage.removeItem('vtree-theme');
+  else localStorage.setItem('vtree-theme', t);
+  applyTheme(t);
+  document.querySelectorAll('[data-themepick]').forEach(b =>
+    b.classList.toggle('primary', b.dataset.themepick === t));
+}
+applyTheme(localStorage.getItem('vtree-theme') || 'system');
+
 $('settingsBtn').onclick = () => {
+  const cur = localStorage.getItem('vtree-theme') || 'system';
   openModal(`
     <header><h3>Settings</h3></header>
     <div class="dbody" style="font-size:13px">
+      <div class="row"><span style="width:70px;color:var(--ink-2)">Theme</span>
+        ${['system', 'light', 'dark'].map(t =>
+          `<button data-themepick="${t}" class="${t === cur ? 'primary' : ''}" onclick="setTheme('${t}')">${t}</button>`).join('')}
+      </div>
       <div>vtree <b>${esc(data ? data.version : '')}</b></div>
       <div class="mono" style="color:var(--ink-2)">${esc(meta ? meta.path : '')}</div>
       <div><a class="port" href="https://github.com/Quentin-JH/vtree/releases" target="_blank">Releases & downloads</a></div>
-      <div style="color:var(--ink-3)">Theme follows your system (light/dark). The server runs as a
-      login service — <span class="mono">vtree ui --uninstall</span> removes it.</div>
+      <div style="color:var(--ink-3)">The server runs as a login service —
+      <span class="mono">vtree ui --uninstall</span> removes it.</div>
     </div>
     <div class="foot"><button onclick="closeModal()">Close</button></div>`);
 };
